@@ -3,6 +3,7 @@ import csv
 from typing import Dict, Tuple, Set, List
 from matplotlib import pyplot as plt
 import numpy as np
+import os
 
 # Nested structure:
 # merged[backend][fft_size] = (mean, std)
@@ -40,7 +41,7 @@ def save_grouped_bar_graph(backends: List[str],
                            fft_sizes: List[int],
                            merged: MergedType,
                            min_fft_size: int = None,
-                           outfile: str = 'vkdispatch_ratios.png'):
+                           outfile: str = 'convolution_nonstrided_scaled_ratios_graph.png'):
     # Choose the sizes to display
     used_fft_sizes = [s for s in sorted(fft_sizes) if (min_fft_size is None or s >= min_fft_size)]
     if not used_fft_sizes:
@@ -75,7 +76,7 @@ def save_grouped_bar_graph(backends: List[str],
     plt.xticks(x, [str(s) for s in used_fft_sizes])
     plt.xlabel('Convolution Size (FFT size)')
     plt.ylabel('speed / cufft speed (higher is better)')
-    plt.title('Convolution Performance Comparison (Grouped Bars)')
+    plt.title('Convolution Performance Ratios')
     plt.grid(True, axis='y', linestyle='--', alpha=0.4)
     plt.legend()
 
@@ -101,7 +102,7 @@ def save_grouped_bar_graph(backends: List[str],
     print(f'Saved {outfile}')
 
 if __name__ == '__main__':
-    merged, backends, fft_sizes = read_bench_csvs('conv_nonstrided_*.csv')
+    merged, backends, fft_sizes = read_bench_csvs('convolution_nonstrided_scaled_*.csv')
 
     print('\nSummary:')
     print(f'Backends found: {sorted(backends)}')
@@ -111,36 +112,40 @@ if __name__ == '__main__':
     sorted_backends = sorted(backends)
     sorted_fft_sizes = sorted(fft_sizes)
 
-    #ratio_cufftdx = []
-    #ratio_vkdispatch = []
+    display_backends = ["zipfft", "vkdispatch"]
 
     merged_nvidia: MergedType = {}
     backends_nvidia: Set[str] = set()
     fft_sizes_nvidia: Set[int] = set()
 
-    with open('ratios_nvidia.csv', newline='') as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            backend = row['Backend'].strip()
-            size = int(row['FFT Size'])
-            ratio = float(row['Ratio'])
-            std_dev = float(row['Std Dev'])
+    if os.path.exists('ratios_nvidia.csv'):
+        display_backends = ["nvidia"] + display_backends
 
-            backends_nvidia.add(backend)
-            fft_sizes_nvidia.add(size)
+        with open('ratios_nvidia.csv', newline='') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                backend = row['Backend'].strip()
+                size = int(row['FFT Size'])
+                ratio = float(row['Ratio'])
+                std_dev = float(row['Std Dev'])
 
-            if backend not in merged_nvidia:
-                merged_nvidia[backend] = {}
+                backends_nvidia.add(backend)
+                fft_sizes_nvidia.add(size)
 
-            # last one wins if duplicates appear across files
-            merged_nvidia[backend][size] = (ratio, std_dev)
+                if backend not in merged_nvidia:
+                    merged_nvidia[backend] = {}
+
+                # last one wins if duplicates appear across files
+                merged_nvidia[backend][size] = (ratio, std_dev)
+        
+        assert fft_sizes_nvidia == fft_sizes, "FFT sizes in ratios_nvidia.csv do not match conv_nonstrided_*.csv"
+    else:
+        print('Warning: ratios_nvidia.csv not found, skipping NVIDIA data.')
 
     print('\nNVIDIA Summary:')
     print(f'Backends found: {sorted(backends_nvidia)}')
     print(f'Convolution sizes found: {sorted(fft_sizes_nvidia)}')
     print(f'Total entries: {sum(len(v) for v in merged_nvidia.values())}')
-
-    assert fft_sizes_nvidia == fft_sizes, "FFT sizes in ratios_nvidia.csv do not match conv_nonstrided_*.csv"
 
     merged_nvidia["zipfft"] = {}
     merged_nvidia["vkdispatch"] = {}
@@ -166,4 +171,4 @@ if __name__ == '__main__':
         merged_nvidia['vkdispatch'][size] = (vkdispatch_ratio, vkdispatch_error)
 
     # Grouped bar chart (side-by-side per size)
-    save_grouped_bar_graph(["nvidia", "zipfft", "vkdispatch"], sorted_fft_sizes, merged_nvidia)
+    save_grouped_bar_graph(display_backends, sorted_fft_sizes, merged_nvidia)

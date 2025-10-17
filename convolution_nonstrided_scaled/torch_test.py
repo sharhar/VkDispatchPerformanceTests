@@ -1,10 +1,10 @@
 import csv
 import time
-import conv_nonstrided_utils as fu
+import test_utils as tu
 import numpy as np
 import torch
 
-def run_torch(config: fu.Config, fft_size: int) -> float:
+def run_torch(config: tu.Config, fft_size: int) -> float:
     shape = config.make_shape_2d(fft_size)
     random_data = config.make_random_data_2d(fft_size)
     scale_factor = np.random.rand() + 0.5
@@ -49,10 +49,10 @@ def run_torch(config: fu.Config, fft_size: int) -> float:
     return config.iter_count * gb_byte_count / elapsed_time
 
 if __name__ == "__main__":
-    config = fu.parse_args()
-    fft_sizes = fu.get_fft_sizes()
+    config = tu.parse_args()
+    fft_sizes = tu.get_fft_sizes()
 
-    output_name = f"conv_nonstrided_torch.csv"
+    output_name = f"convolution_nonstrided_scaled_torch.csv"
     with open(output_name, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(['Backend', 'FFT Size'] + [f'Run {i + 1} (GB/s)' for i in range(config.run_count)] + ['Mean', 'Std Dev'])
@@ -71,4 +71,4 @@ if __name__ == "__main__":
 
             writer.writerow(["torch", fft_size] + rounded_data + [rounded_mean, rounded_std])
         
-    print(f"Results saved to {output_name}.csv")
+    print(f"Results saved to {output_name}")

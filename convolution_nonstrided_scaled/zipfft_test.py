@@ -1,6 +1,6 @@
 import csv
 import time
-import conv_nonstrided_utils as fu
+import test_utils as tu
 import numpy as np
 import torch
 
@@ -10,7 +10,7 @@ except ImportError:
     print("zipfft is not installed. Please install it via 'pip install zipfft'.")
     exit(0)
 
-def run_zipfft(config: fu.Config, fft_size: int) -> float:
+def run_zipfft(config: tu.Config, fft_size: int) -> float:
     shape = config.make_shape_2d(fft_size)
     random_data = config.make_random_data_2d(fft_size)
 
@@ -25,8 +25,6 @@ def run_zipfft(config: fu.Config, fft_size: int) -> float:
     buffer.copy_(torch.from_numpy(random_data).to('cuda'))
 
     stream = torch.cuda.Stream()
-
-    #conv_strided_padded.conv_kernel_size(buffer, True)
 
     torch.cuda.synchronize()
     
@@ -59,10 +57,10 @@ def run_zipfft(config: fu.Config, fft_size: int) -> float:
     return config.iter_count * gb_byte_count / elapsed_time
 
 if __name__ == "__main__":
-    config = fu.parse_args()
-    fft_sizes = fu.get_fft_sizes()
+    config = tu.parse_args()
+    fft_sizes = tu.get_fft_sizes()
 
-    output_name = f"conv_nonstrided_zipfft.csv"
+    output_name = f"convolution_nonstrided_scaled_zipfft.csv"
     with open(output_name, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(['Backend', 'FFT Size'] + [f'Run {i + 1} (GB/s)' for i in range(config.run_count)] + ['Mean', 'Std Dev'])
@@ -81,4 +79,4 @@ if __name__ == "__main__":
 
             writer.writerow(["zipfft", fft_size] + rounded_data + [rounded_mean, rounded_std])
         
-    print(f"Results saved to {output_name}.csv")
+    print(f"Results saved to {output_name}")

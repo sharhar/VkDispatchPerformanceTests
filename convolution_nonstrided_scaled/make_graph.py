@@ -9,7 +9,7 @@ import numpy as np
 MergedType = Dict[str, Dict[int, Tuple[float, float]]]
 
 def read_bench_csvs() -> Tuple[MergedType, Set[str], Set[int]]:
-    pattern = 'conv_nonstrided_*.csv'
+    pattern = 'convolution_nonstrided_scaled_*.csv'
     files = glob.glob(pattern)
 
     merged: MergedType = {}
@@ -41,7 +41,7 @@ def save_grouped_bar_graph(backends: List[str],
                            fft_sizes: List[int],
                            merged: MergedType,
                            min_fft_size: int = None,
-                           outfile: str = 'conv_graph.png'):
+                           outfile: str = 'convolution_nonstrided_scaled_graph.png'):
     # Choose the sizes to display
     used_fft_sizes = [s for s in sorted(fft_sizes) if (min_fft_size is None or s >= min_fft_size)]
     if not used_fft_sizes:
@@ -76,7 +76,7 @@ def save_grouped_bar_graph(backends: List[str],
     plt.xticks(x, [str(s) for s in used_fft_sizes])
     plt.xlabel('Convolution Size (FFT size)')
     plt.ylabel('GB/s (higher is better)')
-    plt.title('Convolution Performance Comparison (Grouped Bars)')
+    plt.title('Scaled Nonstrided Convolution Performance Comparison')
     plt.grid(True, axis='y', linestyle='--', alpha=0.4)
     plt.legend()
     plt.tight_layout()

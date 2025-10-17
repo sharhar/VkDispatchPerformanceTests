@@ -117,19 +117,6 @@ static double run_cufft_case(const Config& cfg, int fft_size) {
     cufftHandle plan;
     checkCuFFT(cufftCreate(&plan), "cufftCreate");
 
-    // int n[2] = { int(dim1), int(dim2) };
-    // int inembed[2] = { int(dim1), int(dim2) };        // physical layout (same as n for tight pack)
-    // int onembed[2] = { int(dim1), int(dim2) };
-    // int istride    = 1;               // contiguous within each 2D image
-    // int ostride    = 1;
-    // int idist      = int(dim1)* int(dim2);           // distance between images
-    // int odist      = int(dim1)* int(dim2);
-
-    // checkCuFFT(cufftPlanMany(&plan, 2, n,
-    //                               inembed,  istride, idist,
-    //                               onembed,  ostride, odist,
-    //                               CUFFT_C2C, int(dim0)), "plan2d");
-
     checkCuFFT(cufftPlan1d(&plan, dim1, CUFFT_C2C, dim0), "plan");
 
     // --- warmup on the stream ---
@@ -178,7 +165,7 @@ int main(int argc, char** argv) {
     const Config cfg = parse_args(argc, argv);
     const auto sizes = get_fft_sizes();
 
-    const std::string output_name = "conv_nonstrided_cufft.csv";
+    const std::string output_name = "convolution_nonstrided_scaled_cufft.csv";
     std::ofstream out(output_name);
     if (!out) {
         std::cerr << "Failed to open output file: " << output_name << "\n";
