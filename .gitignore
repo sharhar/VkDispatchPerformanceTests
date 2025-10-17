@@ -8,6 +8,8 @@ __pycache__/
 
 *.exec
 
+nvidia_control_test/
+
 # Distribution / packaging
 .Python
 build/
