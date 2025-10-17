@@ -76,7 +76,7 @@ def save_grouped_bar_graph(backends: List[str],
     plt.xticks(x, [str(s) for s in used_fft_sizes])
     plt.xlabel('Convolution Size (FFT size)')
     plt.ylabel('speed / cufft speed (higher is better)')
-    plt.title('Convolution Performance Ratios')
+    plt.title('Scaled Nonstrided Convolution Performance Ratios')
     plt.grid(True, axis='y', linestyle='--', alpha=0.4)
     plt.legend()
 

@@ -1,6 +1,6 @@
 import csv
 import time
-import fft_nonstrided_utils as fu
+import test_utils as tu
 import numpy as np
 import torch
 
@@ -10,7 +10,7 @@ except ImportError:
     print("zipfft is not installed. Please install it via 'pip install zipfft'.")
     exit(0)
 
-def run_zipfft(config: fu.Config, fft_size: int) -> float:
+def run_zipfft(config: tu.Config, fft_size: int) -> float:
     shape = config.make_shape(fft_size)
     random_data = config.make_random_data(fft_size)
 
@@ -55,8 +55,8 @@ def run_zipfft(config: fu.Config, fft_size: int) -> float:
     return config.iter_count * gb_byte_count / elapsed_time
 
 if __name__ == "__main__":
-    config = fu.parse_args()
-    fft_sizes = fu.get_fft_sizes()
+    config = tu.parse_args()
+    fft_sizes = tu.get_fft_sizes()
 
     output_name = f"fft_nonstrided_zipfft.csv"
     with open(output_name, 'w', newline='') as csvfile:
@@ -77,4 +77,4 @@ if __name__ == "__main__":
 
             writer.writerow(["zipfft", fft_size] + rounded_data + [rounded_mean, rounded_std])
         
-    print(f"Results saved to {output_name}.csv")
+    print(f"Results saved to {output_name}")

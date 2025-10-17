@@ -8,6 +8,11 @@ BATCH_SIZE=10
 REPEATS=3
 ARCH=86
 
-cd convolution_nonstrided_scaled
-bash run_convolution_nonstrided_scaled_test.sh $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS $ARCH
+cd fft_nonstrided
+bash run_fft_nonstrided_test.sh $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS $ARCH
 cd ..
+
+#cd convolution_nonstrided_scaled
+#bash run_convolution_nonstrided_scaled_test.sh $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS $ARCH
+#cd ..
+

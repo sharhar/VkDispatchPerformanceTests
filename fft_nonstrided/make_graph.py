@@ -38,13 +38,10 @@ def read_bench_csvs() -> Tuple[MergedType, Set[str], Set[int]]:
 
     return merged, backends, fft_sizes
 
-def save_graph(backends: Set[str], fft_sizes: Set[int], merged: MergedType, min_fft_size: int = None):
+def save_graph(backends: Set[str], fft_sizes: Set[int], merged: MergedType):
     plt.figure(figsize=(10, 6))
 
-    if min_fft_size is not None:
-        used_fft_sizes = [size for size in fft_sizes if size >= min_fft_size]
-    else:
-        used_fft_sizes = fft_sizes
+    used_fft_sizes = fft_sizes
 
     for backend_name in backends:
         means = [
@@ -66,13 +63,10 @@ def save_graph(backends: Set[str], fft_sizes: Set[int], merged: MergedType, min_
     plt.xscale('log', base=2)
     plt.xlabel('FFT Size')
     plt.ylabel('GB/s')
-    plt.title('FFT Performance Comparison')
+    plt.title('Nonstrided FFT Performance Comparison')
     plt.legend()
     plt.grid(True)
-    if min_fft_size is not None:
-        plt.savefig(f"fft_graph_min_size{min_fft_size}.png")
-        return
-    plt.savefig(f"fft_graph.png")
+    plt.savefig(f"fft_nonstrided_graph.png")
 
 if __name__ == "__main__":
     # Example usage (change the number as needed)
@@ -87,6 +81,5 @@ if __name__ == "__main__":
     sorted_fft_sizes = sorted(fft_sizes)
 
     save_graph(sorted_backends, sorted_fft_sizes, merged)
-    save_graph(sorted_backends, sorted_fft_sizes, merged, min_fft_size=256)
 
     

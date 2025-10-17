@@ -47,11 +47,7 @@ def run_vkdispatch(config: fu.Config, fft_size: int) -> float:
         read_register[:] = kernel_buffer[transposed_index]
         img_val[:] = vc.mult_conj_c64(read_register, img_val)
     
-    #vd.fft.convolve2D(buffer, kernel, graph=graph, kernel_map=kernel_mapping)
-
-    vd.fft.fft(buffer, graph=graph)
-    vd.fft.convolve(buffer, kernel, axis=1, graph=graph) #, kernel_map=kernel_mapping)
-    vd.fft.ifft(buffer, graph=graph)
+    vd.fft.convolve2D(buffer, kernel, graph=graph, kernel_map=kernel_mapping)
 
     for _ in range(config.warmup):
         graph.submit(config.iter_batch)
