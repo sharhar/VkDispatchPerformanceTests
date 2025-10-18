@@ -1,7 +1,7 @@
 #! /bin/bash
 
-mkdir -p nvidia_control_test
-cd nvidia_control_test
+mkdir -p convolution_nvidia_dependencies
+cd convolution_nvidia_dependencies
 
 wget https://developer.nvidia.com/downloads/compute/cuFFTDx/redist/cuFFTDx/cuda12/nvidia-mathdx-25.06.1-cuda12.tar.gz
 tar -xvf nvidia-mathdx-25.06.1-cuda12.tar.gz

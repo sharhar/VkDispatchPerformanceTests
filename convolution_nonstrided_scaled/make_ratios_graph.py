@@ -118,10 +118,10 @@ if __name__ == '__main__':
     backends_nvidia: Set[str] = set()
     fft_sizes_nvidia: Set[int] = set()
 
-    if os.path.exists('ratios_nvidia.csv'):
+    if os.path.exists('nvidia_ratios.csv'):
         display_backends = ["nvidia"] + display_backends
 
-        with open('ratios_nvidia.csv', newline='') as f:
+        with open('nvidia_ratios.csv', newline='') as f:
             reader = csv.DictReader(f)
             for row in reader:
                 backend = row['Backend'].strip()
@@ -138,9 +138,9 @@ if __name__ == '__main__':
                 # last one wins if duplicates appear across files
                 merged_nvidia[backend][size] = (ratio, std_dev)
         
-        assert fft_sizes_nvidia == fft_sizes, "FFT sizes in ratios_nvidia.csv do not match conv_nonstrided_*.csv"
+        assert fft_sizes_nvidia == fft_sizes, "FFT sizes in nvidia_ratios.csv do not match conv_nonstrided_*.csv"
     else:
-        print('Warning: ratios_nvidia.csv not found, skipping NVIDIA data.')
+        print('Warning: nvidia_ratios.csv not found, skipping NVIDIA data.')
 
     print('\nNVIDIA Summary:')
     print(f'Backends found: {sorted(backends_nvidia)}')

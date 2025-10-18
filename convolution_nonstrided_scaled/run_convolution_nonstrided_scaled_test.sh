@@ -7,6 +7,10 @@ mkdir -p test_results
 
 cd test_results
 
+if [ -f "../../convolution_nvidia/test_results/nvidia_ratios.csv" ]; then
+    cp ../../convolution_nvidia/test_results/nvidia_ratios.csv nvidia_ratios.csv
+fi
+
 if [ -n "${CUDA_HOME:-}" ]; then
     NVCC="$CUDA_HOME/bin/nvcc"
 else

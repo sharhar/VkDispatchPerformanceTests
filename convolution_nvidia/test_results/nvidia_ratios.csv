@@ -1,0 +1,8 @@
+Backend,FFT Size,Ratio,Std Dev
+nvidia,64,3.0227,0.0003
+nvidia,128,3.0358,0.0009
+nvidia,256,3.0244,0.0007
+nvidia,512,3.0097,0.0012
+nvidia,1024,3.0182,0.0013
+nvidia,2048,3.0201,0.0004
+nvidia,4096,2.9977,0.0015

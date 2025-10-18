@@ -8,7 +8,7 @@ __pycache__/
 
 *.exec
 
-nvidia_control_test/
+convolution_nvidia_dependencies/
 
 # Distribution / packaging
 .Python
