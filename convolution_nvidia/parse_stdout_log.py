@@ -39,10 +39,6 @@ with open(filename, 'r') as f:
 
             max_iter_count = max(max_iter_count, iter_count)
 
-            #print(ii, iter_count, fft_size)
-            #print("CufftDx time: ", cufftdx_time)
-            #print("Cufft time: ", cufft_time)
-
 run_str = "".join([f"Run {i+1} (ms)," for i in range(max_iter_count)])
 
 fft_sizes = [64, 128, 256, 512, 1024, 2048, 4096]

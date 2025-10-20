@@ -6,7 +6,7 @@ from pathlib import Path
 
 import make_graph
 
-DATA_SIZE=2**28
+DATA_SIZE=2**27
 ITER_COUNT=400
 BATCH_SIZE=20
 REPEATS=5
@@ -32,16 +32,16 @@ run_test(
     "GB/s (higher is better)"
 )
 
-run_test(
-    "convolution_nvidia",
-    "NVidia Scaled Convolution Performance",
-    "Convolution Size (FFT size)",
-    "ms (lower is better)"
-)
+# run_test(
+#     "convolution_nvidia",
+#     "NVidia Scaled Convolution Performance",
+#     "Convolution Size (FFT size)",
+#     "ms (lower is better)"
+# )
 
-run_test(
-    "convolution_nonstrided_scaled",
-    "Control Scaled Convolution Performance",
-    "Convolution Size (FFT size)", 
-    "s (lower is better)"
-)
+# run_test(
+#     "convolution_nonstrided_scaled",
+#     "Control Scaled Convolution Performance",
+#     "Convolution Size (FFT size)", 
+#     "s (lower is better)"
+# )
