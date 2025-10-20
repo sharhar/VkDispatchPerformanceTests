@@ -66,7 +66,24 @@ def save_graph(backends: Set[str], fft_sizes: Set[int], merged: MergedType):
     plt.title('Nonstrided FFT Performance Comparison')
     plt.legend()
     plt.grid(True)
-    plt.savefig(f"fft_nonstrided_graph.png")
+    plt.savefig(f"graph.png")
+
+def save_merged_csv(merged: MergedType, backends: Set[str], fft_sizes: Set[int]):
+    with open("merged.csv", "w", newline="") as f:
+        fieldnames = ["Backend", "FFT Size", "Mean", "Std Dev"]
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+
+        for backend_name in backends:
+            for size in fft_sizes:
+                if size in merged[backend_name]:
+                    mean, std = merged[backend_name][size]
+                    writer.writerow({
+                        "Backend": backend_name,
+                        "FFT Size": size,
+                        "Mean": mean,
+                        "Std Dev": std,
+                    })
 
 if __name__ == "__main__":
     # Example usage (change the number as needed)
@@ -82,4 +99,5 @@ if __name__ == "__main__":
 
     save_graph(sorted_backends, sorted_fft_sizes, merged)
 
+    save_merged_csv(merged, sorted_backends, sorted_fft_sizes)
     

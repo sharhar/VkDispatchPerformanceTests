@@ -53,3 +53,5 @@ for ((i=1; i<=repeat; i++)); do
   echo "============================="
   ./test_results/nvidia_convolution_test.exec
 done
+
+rm test_results/nvidia_convolution_test.exec

@@ -140,7 +140,7 @@ int main(int argc, char** argv) {
     const Config cfg = parse_args(argc, argv);
     const auto sizes = get_fft_sizes();
 
-    const std::string output_name = "fft_nonstrided_cufft.csv";
+    const std::string output_name = "cufft.csv";
     std::ofstream out(output_name);
     if (!out) {
         std::cerr << "Failed to open output file: " << output_name << "\n";

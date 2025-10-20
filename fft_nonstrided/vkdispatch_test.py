@@ -45,7 +45,7 @@ if __name__ == "__main__":
     config = tu.parse_args()
     fft_sizes = tu.get_fft_sizes()
 
-    output_name = f"fft_nonstrided_vkdispatch.csv"
+    output_name = f"vkdispatch.csv"
     with open(output_name, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(['Backend', 'FFT Size'] + [f'Run {i + 1} (GB/s)' for i in range(config.run_count)] + ['Mean', 'Std Dev'])

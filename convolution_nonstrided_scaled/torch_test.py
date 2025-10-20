@@ -52,7 +52,7 @@ if __name__ == "__main__":
     config = tu.parse_args()
     fft_sizes = tu.get_fft_sizes()
 
-    output_name = f"convolution_nonstrided_scaled_torch.csv"
+    output_name = f"torch.csv"
     with open(output_name, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(['Backend', 'FFT Size'] + [f'Run {i + 1} (GB/s)' for i in range(config.run_count)] + ['Mean', 'Std Dev'])
