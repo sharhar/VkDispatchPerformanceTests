@@ -24,12 +24,12 @@ def entrypoint(backend_name: str,
                 gb_byte_count, elapsed_time = run_function(config, fft_size, io_count, gpu_function)
                 gb_per_second = config.iter_count * gb_byte_count / elapsed_time
 
-                print(f"FFT Size: {fft_size}, Throughput: {gb_per_second:.2f} GB/s")
+                print(f"FFT Size: {fft_size}, Throughput: {gb_per_second:.4f} GB/s")
                 rates.append(gb_per_second)
 
-            rounded_data = [round(rate, 2) for rate in rates]
-            rounded_mean = round(np.mean(rates), 2)
-            rounded_std = round(np.std(rates), 2)
+            rounded_data = [round(rate, 4) for rate in rates]
+            rounded_mean = round(np.mean(rates), 4)
+            rounded_std = round(np.std(rates), 4)
 
             writer.writerow([backend_name, fft_size] + rounded_data + [rounded_mean, rounded_std])
         

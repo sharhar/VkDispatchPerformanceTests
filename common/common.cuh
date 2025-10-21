@@ -165,7 +165,7 @@ int main(int argc, char** argv) {
 
         for (int r = 0; r < cfg.run_count; ++r) {
             const double gbps = run_cufft_case(cfg, fft_size);
-            std::cout << "FFT Size: " << fft_size << ", Throughput: " << std::fixed << std::setprecision(2)
+            std::cout << "FFT Size: " << fft_size << ", Throughput: " << std::fixed << std::setprecision(4)
                       << gbps << " GB/s\n";
             rates.push_back(gbps);
         }
@@ -185,7 +185,7 @@ int main(int argc, char** argv) {
 
         // Round to 2 decimals like your Torch script
         out << "cufft," << fft_size;
-        out << std::fixed << std::setprecision(2);
+        out << std::fixed << std::setprecision(4);
         for (double v : rates) out << "," << v;
         out << "," << mean << "," << stdev << "\n";
     }

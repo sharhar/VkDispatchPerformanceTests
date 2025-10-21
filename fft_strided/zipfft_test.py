@@ -5,14 +5,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from common import entrypoint, run_torch, Config
 
 import torch
-import numpy as np
+from zipfft import fft_strided
 
 def test_function(config: Config,
                     fft_size: int,
                     buffer: torch.Tensor,
                     kernel: torch.Tensor) -> torch.Tensor:
-    scale_factor = np.random.rand() + 0.5
-    torch.fft.ifft(torch.fft.fft(buffer) * scale_factor)
+    fft_strided.fft(buffer)
 
 if __name__ == "__main__":
-    entrypoint("torch", run_torch, 6, test_function)
+    entrypoint("zipfft", run_torch, 2, test_function)
