@@ -54,23 +54,30 @@ def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
 #     ylabel="GB/s (higher is better)"
 # )
 
+# run_test(
+#     test_name="fft_strided",
+#     title="Strided FFT Performance",
+#     xlabel="FFT Size",
+#     ylabel="GB/s (higher is better)"
+# )
+
+# run_test(
+#     test_name="fft_2d",
+#     title="2D FFT Performance",
+#     xlabel="FFT Size",
+#     ylabel="GB/s (higher is better)"
+# )
+
 run_test(
-    test_name="fft_strided",
-    title="Strided FFT Performance",
-    xlabel="FFT Size",
-    ylabel="GB/s (higher is better)"
+    "conv_scaled_nvidia",
+    "NVidia Scaled Convolution Performance",
+    "Convolution Size (FFT size)",
+    "ms (lower is better)"
 )
 
-# run_test(
-#     "convolution_nvidia",
-#     "NVidia Scaled Convolution Performance",
-#     "Convolution Size (FFT size)",
-#     "ms (lower is better)"
-# )
-
-# run_test(
-#     "convolution_nonstrided_scaled",
-#     "Control Scaled Convolution Performance",
-#     "Convolution Size (FFT size)", 
-#     "s (lower is better)"
-# )
+run_test(
+    "conv_scaled_control",
+    "Control Scaled Convolution Performance",
+    "Convolution Size (FFT size)", 
+    "s (lower is better)"
+)

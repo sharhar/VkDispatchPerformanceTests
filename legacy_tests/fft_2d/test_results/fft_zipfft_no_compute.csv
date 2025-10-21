@@ -1,8 +1,0 @@
-Backend,FFT Size,Run 1 (GB/s),Run 2 (GB/s),Run 3 (GB/s),Mean,Std Dev
-zipfft_no_compute,64,361.95,361.72,361.67,361.78,0.12
-zipfft_no_compute,128,362.46,362.47,362.42,362.45,0.02
-zipfft_no_compute,256,361.11,360.97,361.0,361.03,0.06
-zipfft_no_compute,512,360.31,360.29,360.3,360.3,0.01
-zipfft_no_compute,1024,282.84,282.78,282.85,282.82,0.03
-zipfft_no_compute,2048,158.43,158.53,158.49,158.48,0.04
-zipfft_no_compute,4096,188.99,189.13,189.11,189.08,0.06

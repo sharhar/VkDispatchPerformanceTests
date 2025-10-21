@@ -15,6 +15,8 @@ BATCH_SIZE=$3
 REPEATS=$4
 ARCH=$5
 
+# /usr/local/cuda/bin/nvcc ../fft_cufft.cu -o fft_cufft.exec -lcufft
+
 echo "Running performance tests with the following parameters:"
 echo "Data Size: $DATA_SIZE"
 echo "Iteration Count: $ITER_COUNT"

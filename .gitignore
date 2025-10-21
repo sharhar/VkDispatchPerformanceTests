@@ -12,7 +12,7 @@ __pycache__/
 
 .vscode/
 
-convolution_nvidia_dependencies/
+conv_scaled_nvidia/dependencies/
 
 # Distribution / packaging
 .Python
