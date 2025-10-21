@@ -10,6 +10,7 @@ class Config:
     iter_count: int
     iter_batch: int
     run_count: int
+    signal_factor: int
     warmup: int = 10
 
     def make_shape(self, fft_size: int) -> Tuple[int, ...]:
@@ -31,6 +32,7 @@ def parse_args() -> Config:
         iter_count=int(sys.argv[2]),
         iter_batch=int(sys.argv[3]),
         run_count=int(sys.argv[4]),
+        signal_factor=8 # Default signal factor
     )
 
 def get_fft_sizes():

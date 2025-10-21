@@ -1,16 +1,16 @@
-import csv
-import time
-import conv_padded_utils as fu
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from common import entrypoint, run_vkdispatch, Config
+
 import vkdispatch as vd
 import vkdispatch.codegen as vc
-import numpy as np
 
 def padded_cross_correlation(
         buffer: vd.Buffer,
         kernel: vd.Buffer,
-        signal_shape: tuple,
-        graph: vd.CommandGraph):
-
+        signal_shape: tuple):
 
     # Fill input buffer with zeros where needed
     @vd.map_registers([vc.c64])
@@ -44,8 +44,7 @@ def padded_cross_correlation(
             buffer.shape[2]
         ),
         input_map=initial_input_mapping,
-        output_map=initial_output_mapping,
-        graph=graph
+        output_map=initial_output_mapping
     )
 
     # Again, we skip reading the zero-padded values from the input
@@ -96,79 +95,17 @@ def padded_cross_correlation(
         kernel,
         input_map=input_mapping,
         kernel_map=kernel_mapping,
-        axis=1,
-        graph=graph
+        axis=1
     )
 
-    vd.fft.ifft(buffer, graph=graph)
+    vd.fft.ifft(buffer)
 
-def run_vkdispatch(config: fu.Config, fft_size: int) -> float:
-    shape = config.make_shape(fft_size)
-    random_data = config.make_random_data(fft_size)
-    random_data_2 = config.make_random_data(fft_size)
-
-    buffer = vd.Buffer(shape, var_type=vd.complex64)
-    buffer.write(random_data)
-
-    kernel = vd.Buffer(shape, var_type=vd.complex64)
-    kernel.write(random_data_2)
-
-    graph = vd.CommandGraph()
-
+def test_function(config: Config,
+                    fft_size: int,
+                    buffer: vd.Buffer,
+                    kernel: vd.Buffer):
     signal_size = fft_size // config.signal_factor
-
-    padded_cross_correlation(buffer, kernel, (signal_size, signal_size), graph)
-
-    for _ in range(config.warmup):
-        graph.submit(config.iter_batch)
-
-    vd.queue_wait_idle()
-
-    gb_byte_count = 11 * 8 * buffer.size / (1024 * 1024 * 1024)
-    
-    start_time = time.perf_counter()
-
-    for _ in range(config.iter_count // config.iter_batch):
-        graph.submit(config.iter_batch)
-
-    vd.queue_wait_idle()
-
-    elapsed_time = time.perf_counter() - start_time
-
-    buffer.destroy()
-    graph.destroy()
-    vd.fft.cache_clear()
-
-    time.sleep(1)
-
-    vd.queue_wait_idle()    
-
-    return config.iter_count * gb_byte_count / elapsed_time
+    padded_cross_correlation(buffer, kernel, (signal_size, signal_size))
 
 if __name__ == "__main__":
-    config = fu.parse_args()
-    fft_sizes = fu.get_fft_sizes()
-
-    output_name = f"conv_padded_vkdispatch.csv"
-    with open(output_name, 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile)
-        writer.writerow(['Backend', 'FFT Size'] + [f'Run {i + 1} (GB/s)' for i in range(config.run_count)] + ['Mean', 'Std Dev'])
-        
-        for fft_size in fft_sizes:
-            rates = []
-
-            for _ in range(config.run_count):
-                gb_per_second = run_vkdispatch(config, fft_size)
-                print(f"FFT Size: {fft_size}, Throughput: {gb_per_second:.2f} GB/s")
-                rates.append(gb_per_second)
-
-            rounded_data = [round(rate, 2) for rate in rates]
-            rounded_mean = round(np.mean(rates), 2)
-            rounded_std = round(np.std(rates), 2)
-
-            writer.writerow(["vkdispatch", fft_size] + rounded_data + [rounded_mean, rounded_std])
-        
-    print(f"Results saved to {output_name}.csv")
-
-
-    
+    entrypoint("vkdispatch", run_vkdispatch, 11, test_function)
