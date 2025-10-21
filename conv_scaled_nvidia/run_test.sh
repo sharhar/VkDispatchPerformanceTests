@@ -15,6 +15,7 @@ if [ ! -d "dependencies" ]; then
     git clone https://github.com/NVIDIA/CUDALibrarySamples.git
     cd CUDALibrarySamples
     git checkout a94482ebecf8b16d5b83ab276b7db3a84979f0e5
+    cd ..
 
     cd ..
 fi

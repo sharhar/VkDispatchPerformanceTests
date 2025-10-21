@@ -6,6 +6,11 @@ from pathlib import Path
 
 import make_graph
 
+DATA_SIZE=2**27
+ITER_COUNT=400
+BATCH_SIZE=20
+REPEATS=5
+
 cuda_home_dir = os.environ.get('CUDA_HOME', None)
 
 nvcc_dir = "nvcc"
@@ -28,10 +33,6 @@ result = subprocess.run(
     check=True
 )
 
-DATA_SIZE=2**27
-ITER_COUNT=400
-BATCH_SIZE=20
-REPEATS=5
 ARCH=int(result.stdout.strip())
 
 def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
@@ -68,12 +69,12 @@ def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
 #     ylabel="GB/s (higher is better)"
 # )
 
-run_test(
-    "conv_scaled_nvidia",
-    "NVidia Scaled Convolution Performance",
-    "Convolution Size (FFT size)",
-    "ms (lower is better)"
-)
+# run_test(
+#     "conv_scaled_nvidia",
+#     "NVidia Scaled Convolution Performance",
+#     "Convolution Size (FFT size)",
+#     "ms (lower is better)"
+# )
 
 run_test(
     "conv_scaled_control",
