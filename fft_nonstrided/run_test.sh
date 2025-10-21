@@ -24,7 +24,7 @@ echo "Batch Size: $BATCH_SIZE"
 echo "Repeats: $REPEATS"
 
 echo "Running cuFFT Test..."
-$NVCC -O2 -std=c++17 ../cufft_test.cu -gencode arch=compute_${ARCH},code=sm_${ARCH} -rdc=true -lcufft_static -lculibos -o cufft_test.exec
+$NVCC -O2 -std=c++17 ../cufft_test.cu -gencode arch=compute_${ARCH},code=sm_${ARCH} -lcufft -lculibos -o cufft_test.exec
 ./cufft_test.exec $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
 rm cufft_test.exec
 
@@ -39,5 +39,3 @@ python3 ../torch_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
 
 echo "Running ZipFFT Test..."
 python3 ../zipfft_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
-
-#python3 ../make_graph.py

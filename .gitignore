@@ -10,6 +10,8 @@ __pycache__/
 *.csv
 *.png
 
+.vscode/
+
 convolution_nvidia_dependencies/
 
 # Distribution / packaging

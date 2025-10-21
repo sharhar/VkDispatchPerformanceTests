@@ -133,6 +133,7 @@ static double run_cufft_case(const Config& cfg, int fft_size) {
     // Cleanup
     cufftDestroy(plan);
     cudaFree(d_data);
+    cudaFree(d_kernel);
 
     return gb_per_second;
 }

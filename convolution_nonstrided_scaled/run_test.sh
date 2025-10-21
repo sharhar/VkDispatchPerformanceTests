@@ -4,10 +4,6 @@ mkdir -p test_results
 
 cd test_results
 
-# if [ -f "../../convolution_nvidia/test_results/nvidia_ratios.csv" ]; then
-#     cp ../../convolution_nvidia/test_results/nvidia_ratios.csv nvidia_ratios.csv
-# fi
-
 if [ -n "${CUDA_HOME:-}" ]; then
     NVCC="$CUDA_HOME/bin/nvcc"
 else
@@ -27,7 +23,7 @@ echo "Batch Size: $BATCH_SIZE"
 echo "Repeats: $REPEATS"
 
 echo "Running cuFFT Test..."
-$NVCC -O2 -std=c++17 ../cufft_test.cu -gencode arch=compute_${ARCH},code=sm_${ARCH} -rdc=true -lcufft_static -lculibos -o cufft_test.exec
+$NVCC -O2 -std=c++17 ../cufft_test.cu -gencode arch=compute_${ARCH},code=sm_${ARCH} -lcufft -lculibos -o cufft_test.exec
 ./cufft_test.exec $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
 rm cufft_test.exec
 

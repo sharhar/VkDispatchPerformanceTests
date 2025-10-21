@@ -21,7 +21,9 @@ def entrypoint(backend_name: str,
             rates = []
 
             for _ in range(config.run_count):
-                gb_per_second = run_function(config, fft_size, io_count, gpu_function)
+                gb_byte_count, elapsed_time = run_function(config, fft_size, io_count, gpu_function)
+                gb_per_second = config.iter_count * gb_byte_count / elapsed_time
+
                 print(f"FFT Size: {fft_size}, Throughput: {gb_per_second:.2f} GB/s")
                 rates.append(gb_per_second)
 
