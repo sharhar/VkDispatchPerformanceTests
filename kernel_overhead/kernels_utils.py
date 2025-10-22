@@ -154,6 +154,12 @@ def do_benchmark_vkdispatch(kernel, params_host, kernel_type, batch_size, iter_c
 
     total_streams = streams_per_device * len(device_ids)
 
+    stream_ids = []
+    for i in range(total_streams):
+        device_offset = device_ids[i % len(device_ids)] * streams_per_device
+        stream_id = device_offset + (i // len(device_ids))
+        stream_ids.append(stream_id)
+
     vd.queue_wait_idle()   
     
     start_time = time.perf_counter()
@@ -162,8 +168,7 @@ def do_benchmark_vkdispatch(kernel, params_host, kernel_type, batch_size, iter_c
             graph.set_var("mat1", params_host[2*i*batch_size:2*(i+1)*batch_size:2])
             graph.set_var("mat2", params_host[2*i*batch_size+1:2*(i+1)*batch_size:2])
 
-        raw_stream_index = i % total_streams
-        raw_stream_index = raw_stream_index + (stream_count - streams_per_device) * raw_stream_index // streams_per_device
+        raw_stream_index = stream_ids[i % total_streams]
         graph.submit(instance_count=batch_size, queue_index=raw_stream_index)
 
     vd.queue_wait_idle()   

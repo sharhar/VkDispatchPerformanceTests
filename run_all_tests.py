@@ -83,6 +83,13 @@ def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
 #     ylabel="s (lower is better)"
 # )
 
+run_test(
+    test_name="conv_scaled_comparison",
+    title="Scaled Convolution Performance Comparison",
+    xlabel="Convolution Size (FFT size)", 
+    ylabel="Speed Ratio (higher is better)"
+)
+
 # run_test(
 #     test_name="conv_2d",
 #     title="2D Convolution Performance",
@@ -90,9 +97,9 @@ def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
 #     ylabel="GB/s (higher is better)"
 # )
 
-run_test(
-    test_name="conv_2d_padded",
-    title="2D Padded Convolution Performance",
-    xlabel="Convolution Size (FFT size)", 
-    ylabel="GB/s (higher is better)"
-)
+# run_test(
+#     test_name="conv_2d_padded",
+#     title="2D Padded Convolution Performance",
+#     xlabel="Convolution Size (FFT size)", 
+#     ylabel="GB/s (higher is better)"
+# )
