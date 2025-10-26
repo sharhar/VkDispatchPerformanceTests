@@ -13,7 +13,7 @@ def test_function(config: Config,
                     buffer: torch.Tensor,
                     kernel: torch.Tensor) -> torch.Tensor:
     scale_factor = np.random.rand() + 0.5
-    conv_nonstrided.conv(buffer.view(-1, buffer.size(2)), scale_factor)
+    conv_nonstrided.conv(buffer, scale_factor)
 
 if __name__ == "__main__":
     entrypoint("zipfft", run_torch, 6, test_function)

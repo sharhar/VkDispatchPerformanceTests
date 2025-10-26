@@ -6,10 +6,85 @@ import numpy as np
 import sys
 import os
 import shutil
+import matplotlib.colors as mcolors
+import colorsys
 
 # Nested structure:
 # merged[backend][fft_size] = (mean, std)
 MergedType = Dict[str, Dict[int, Tuple[float, float]]]
+
+def adjust_lightness(color, factor):
+    """Lighten or darken a given matplotlib color by multiplying its lightness by 'factor'."""
+    try:
+        c = mcolors.cnames[color]
+    except KeyError:
+        c = color
+    r, g, b = mcolors.to_rgb(c)
+    h, l, s = colorsys.rgb_to_hls(r, g, b)
+    l = max(0, min(1, l * factor))
+    r, g, b = colorsys.hls_to_rgb(h, l, s)
+    return (r, g, b)
+
+def get_backend_color(backend_name: str) -> Tuple[float, float, float]:
+    color_base_nvidia = plt.cm.tab10(2)  # Green
+    color_base_vulkan = plt.cm.tab10(3)  # Red
+    color_base_torch = plt.cm.tab10(0)   # Blue
+    color_base_zipfft = plt.cm.tab10(1)  # Orange
+
+    if backend_name == "cufft":
+        return adjust_lightness(color_base_nvidia, 0.8)
+    elif backend_name == "cufftdx":
+        return adjust_lightness(color_base_nvidia, 1.4)
+    
+    elif backend_name == "vkdispatch":
+        return adjust_lightness(color_base_vulkan, 0.8)
+    elif backend_name == "vkfft":
+        return adjust_lightness(color_base_vulkan, 1.4)
+    
+    elif backend_name == "torch":
+        return adjust_lightness(color_base_torch, 0.8)
+    
+    elif backend_name == "zipfft":
+        return adjust_lightness(color_base_zipfft, 1.6)
+    elif backend_name == "zipfft_smem":
+        return adjust_lightness(color_base_zipfft, 1.2)
+    
+    elif backend_name == "zipfft_transpose":
+        return adjust_lightness(color_base_zipfft, 0.8)
+    elif backend_name == "zipfft_transpose_smem":
+        return adjust_lightness(color_base_zipfft, 0.6)
+
+    else:
+        raise ValueError(f"Unknown backend name: {backend_name}")
+
+def sort_backend(backends: Set[str]) -> List[str]:
+    sorted_list = []
+    
+    if "vkdispatch" in backends:
+        sorted_list.append("vkdispatch")
+    if "vkfft" in backends:
+        sorted_list.append("vkfft")
+
+    if "cufft" in backends:
+        sorted_list.append("cufft")
+    if "cufftdx" in backends:
+        sorted_list.append("cufftdx")
+
+    if "torch" in backends:
+        sorted_list.append("torch")
+    if "zipfft" in backends:
+        sorted_list.append("zipfft")
+
+    if "zipfft_smem" in backends:
+        sorted_list.append("zipfft_smem")
+
+    if "zipfft_transpose" in backends:
+        sorted_list.append("zipfft_transpose")
+
+    if "zipfft_transpose_smem" in backends:
+        sorted_list.append("zipfft_transpose_smem")
+
+    return sorted_list
 
 def read_bench_csvs(pattern) -> Tuple[MergedType, Set[str], Set[int]]:
     files = glob.glob(pattern)
@@ -39,7 +114,7 @@ def read_bench_csvs(pattern) -> Tuple[MergedType, Set[str], Set[int]]:
 
     return merged, backends, fft_sizes
 
-def save_grouped_bar_graph(backends: List[str],
+def save_bar_graph(backends: List[str],
                            fft_sizes: List[int],
                            merged: MergedType,
                            outfile: str,
@@ -73,11 +148,7 @@ def save_grouped_bar_graph(backends: List[str],
         if xs:
             plt.bar(xs, heights, width=width, yerr=errs, capsize=4, label=backend)
 
-    # X axis as categorical sizes (more readable for grouped bars)
     plt.xticks(x, [str(s) for s in used_fft_sizes])
-    #plt.xlabel('Convolution Size (FFT size)')
-    #plt.ylabel('GB/s (higher is better)')
-    #plt.title('Scaled Nonstrided Convolution Performance Comparison')
     plt.xlabel(xlabel)
     plt.ylabel(ylabel)
     plt.title(title)
@@ -86,6 +157,44 @@ def save_grouped_bar_graph(backends: List[str],
     plt.tight_layout()
     plt.savefig(outfile)
     print(f'Saved {outfile}')
+
+def save_line_graph(
+        backends: Set[str],
+        fft_sizes: Set[int],
+        merged: MergedType,
+        outfile: str,
+        title: str,
+        xlabel: str,
+        ylabel: str):
+    plt.figure(figsize=(10, 6))
+
+    used_fft_sizes = sorted(fft_sizes)
+
+    for backend_name in sort_backend(backends):
+        means = [
+            merged[backend_name][i][0]
+            for i in used_fft_sizes
+        ]
+        stds = [
+            merged[backend_name][i][1]
+            for i in used_fft_sizes
+        ]
+        
+        plt.errorbar(
+            used_fft_sizes,
+            means,
+            yerr=stds,
+            label=backend_name,
+            capsize=5,
+            color=get_backend_color(backend_name)
+        )
+    plt.xscale('log', base=2)
+    plt.xlabel(xlabel)
+    plt.ylabel(ylabel)
+    plt.title(title)
+    plt.legend()
+    plt.grid(True)
+    plt.savefig(outfile)
 
 def copy_files(src_dir: str, dst_dir: str, extensions: List[str] = None):
     """Copy files with specified extensions from src_dir to dst_dir."""
@@ -140,7 +249,7 @@ def make_graph(test_name: str, title: str, xlabel: str, ylabel: str):
     save_merged_csv(merged, sorted_backends, sorted_fft_sizes, merged_filename)
 
     graph_filename = os.path.join(out_dir, "graph.png")
-    save_grouped_bar_graph(
+    save_line_graph(
         sorted_backends,
         sorted_fft_sizes,
         merged,

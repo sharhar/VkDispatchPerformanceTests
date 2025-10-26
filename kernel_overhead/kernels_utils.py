@@ -116,14 +116,14 @@ def do_benchmark_warp(kernel, params_host, kernel_type, batch_size, iter_count, 
 # ----------- Define kernels for measuring launch overheads ---------------
 
 
-@vd.shader(local_size=(1, 1, 1), workgroups=(1, 1, 1), enable_exec_bounds=False)
+@vd.shader(local_size=(1, 1, 1), workgroups=(1, 1, 1), flags=vc.ShaderFlags.NO_EXEC_BOUNDS)
 def k_const_vkdispatch(out: vc.Buff[vc.f32], mat1: vc.Const[vc.m4], mat2: vc.Const[vc.m4]):
     i = vc.global_invocation().x
     vc.if_statement(i == 0)
     out[i] = out[i] + vc.determinant(mat1) + vc.determinant(mat2)
     vc.end()
 
-@vd.shader(local_size=(1, 1, 1), workgroups=(1, 1, 1), enable_exec_bounds=False)
+@vd.shader(local_size=(1, 1, 1), workgroups=(1, 1, 1), flags=vc.ShaderFlags.NO_EXEC_BOUNDS)
 def k_param_stream_vkdispatch(out: vc.Buff[vc.f32], mat1: vc.Var[vc.m4], mat2: vc.Var[vc.m4]):
     i = vc.global_invocation().x
     vc.if_statement(i == 0)

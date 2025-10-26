@@ -1,12 +1,11 @@
 import numpy as np
 import vkdispatch as vd
 
-#vd.initialize(log_level=vd.LogLevel.INFO)
-
 import matplotlib.pyplot as plt
 import sys
 import time
 
+from kernels_utils import do_benchmark, adjust_lightness
 
 import csv
 
@@ -48,13 +47,8 @@ device_ids = list(range(int(sys.argv[2])))
 
 vkdispatch_queue_families = []
 
-#vd.initialize(log_level=vd.LogLevel.INFO)
-
 for device_id in device_ids:
     vkdispatch_queue_families.append(vd.select_queue_families(device_id, total_stream_count))
-
-vd.log_info(f"Using devices: {device_ids} with total stream count: {total_stream_count}")
-vd.log_info(f"Queue families: {vkdispatch_queue_families}")
 
 vd.make_context(device_ids=device_ids, queue_families=vkdispatch_queue_families)
 
@@ -68,11 +62,10 @@ identity_matrix = np.diag(np.ones(shape=(4,), dtype=np.float32))
 params_host = np.zeros(shape=(2*iter_count, 4, 4), dtype=np.float32)
 params_host[:] = identity_matrix
 
-batch_size = 32 * 1024
+batch_size = 1024
 
 stream_counts = list(range(1, total_stream_count + 1))  # Stream counts from 1 to stream_count
 
-from kernels_utils import do_benchmark, adjust_lightness
 
 for streams in stream_counts:
     for platform, kernel_type in test_configs:

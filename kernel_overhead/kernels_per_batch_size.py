@@ -5,7 +5,7 @@ import sys
 import time
 import csv
 
-from kernels_utils import do_benchmark, adjust_lightness
+
 
 platforms = [
     "warp",
@@ -48,7 +48,7 @@ vkdispatch_queue_families = []
 for device_id in device_ids:
     vkdispatch_queue_families.append(vd.select_queue_families(device_id, stream_count))
 
-vd.make_context(devices=device_ids, queue_families=vkdispatch_queue_families)
+vd.make_context(device_ids=device_ids, queue_families=vkdispatch_queue_families)
 
 datas = {platform: {kernel_type: [] for kernel_type in kernel_types} for platform in platforms}
 
@@ -61,6 +61,8 @@ params_host = np.zeros(shape=(2*iter_count, 4, 4), dtype=np.float32)
 params_host[:] = identity_matrix
 
 batch_size_exponents = list(range(2, 14))  # Batch sizes from 8 to 1024
+
+from kernels_utils import do_benchmark, adjust_lightness
 
 for batch_size_exp in batch_size_exponents:
     batch_size = 2 ** batch_size_exp

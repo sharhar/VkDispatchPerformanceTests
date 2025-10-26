@@ -12,8 +12,8 @@ def test_function(config: Config,
                     fft_size: int,
                     buffer: torch.Tensor,
                     kernel: torch.Tensor) -> torch.Tensor:
-    fft_nonstrided.fft(buffer.view(-1, buffer.size(2)), False)
-    fft_strided.fft(buffer)
+    fft_nonstrided.fft(buffer)
+    fft_strided.fft(buffer, True)
 
 if __name__ == "__main__":
     entrypoint("zipfft", run_torch, 4, test_function)
