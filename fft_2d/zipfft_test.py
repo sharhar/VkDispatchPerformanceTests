@@ -13,7 +13,15 @@ def test_function(config: Config,
                     buffer: torch.Tensor,
                     kernel: torch.Tensor) -> torch.Tensor:
     fft_nonstrided.fft(buffer)
+    fft_strided.fft(buffer, False)
+
+def test_function_smem(config: Config,
+                    fft_size: int,
+                    buffer: torch.Tensor,
+                    kernel: torch.Tensor) -> torch.Tensor:
+    fft_nonstrided.fft(buffer)
     fft_strided.fft(buffer, True)
 
 if __name__ == "__main__":
     entrypoint("zipfft", run_torch, 4, test_function)
+    entrypoint("zipfft_smem", run_torch, 4, test_function_smem)

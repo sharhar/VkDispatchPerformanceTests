@@ -95,6 +95,11 @@ def read_bench_csvs(pattern) -> Tuple[MergedType, Set[str], Set[int]]:
 
     for filename in files:
         print(f'Reading: {filename}')
+
+        if filename.endswith("merged.csv"):
+            print('  Skipping merged.csv file')
+            continue
+
         with open(filename, newline='') as f:
             reader = csv.DictReader(f)
             for row in reader:

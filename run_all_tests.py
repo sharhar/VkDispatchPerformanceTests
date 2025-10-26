@@ -6,10 +6,10 @@ from pathlib import Path
 
 import make_graph
 
-DATA_SIZE=2**27
-ITER_COUNT=200
-BATCH_SIZE=20
-REPEATS=5
+DATA_SIZE=2**26
+ITER_COUNT=150
+BATCH_SIZE=15
+REPEATS=3
 
 cuda_home_dir = os.environ.get('CUDA_HOME', None)
 
@@ -80,7 +80,7 @@ run_test(
     test_name="conv_scaled_control",
     title="Control Scaled Convolution Performance",
     xlabel="Convolution Size (FFT size)", 
-    ylabel="s (lower is better)"
+    ylabel="GB/s (higher is better)"
 )
 
 run_test(
