@@ -10,29 +10,34 @@ import vkdispatch.codegen as vc
 def padded_cross_correlation(
         buffer: vd.Buffer,
         kernel: vd.Buffer,
-        signal_shape: tuple):
+        signal_shape: tuple,
+        transposed_kernel: bool):
 
     # Fill input buffer with zeros where needed
-    @vd.map_registers([vc.c64])
+    @vd.map #_registers([vc.c64])
     def initial_input_mapping(input_buffer: vc.Buffer[vc.c64]):
-        vc.if_statement(vc.mapping_index() % buffer.shape[2] < signal_shape[1])
+        read_op = vd.fft.mapped_read_op()
 
-        in_layer_index = vc.mapping_index() % (signal_shape[1] * buffer.shape[2])
-        out_layer_index = vc.mapping_index() / (signal_shape[1] * buffer.shape[2])
+        vc.if_statement(read_op.io_index % buffer.shape[2] < signal_shape[1])
+
+        in_layer_index = read_op.io_index % (signal_shape[1] * buffer.shape[2])
+        out_layer_index = read_op.io_index / (signal_shape[1] * buffer.shape[2])
         actual_index = in_layer_index + out_layer_index * (buffer.shape[1] * buffer.shape[2])
 
-        vc.mapping_registers()[0][:] = input_buffer[actual_index]
+        read_op.register[:] = input_buffer[actual_index]
         vc.else_statement()
-        vc.mapping_registers()[0][:] = "vec2(0)"
+        read_op.register[:] = "vec2(0)"
         vc.end()
 
     # Remap output indicies to match the actual buffer shape
-    @vd.map_registers([vc.c64])
+    @vd.map #_registers([vc.c64])
     def initial_output_mapping(output_buffer: vc.Buffer[vc.c64]):
-        in_layer_index = vc.mapping_index() % (signal_shape[1] * buffer.shape[2])
-        out_layer_index = vc.mapping_index() / (signal_shape[1] * buffer.shape[2])
+        write_op = vd.fft.mapped_write_op()
+
+        in_layer_index = write_op.io_index % (signal_shape[1] * buffer.shape[2])
+        out_layer_index = write_op.io_index / (signal_shape[1] * buffer.shape[2])
         actual_index = in_layer_index + out_layer_index * (buffer.shape[1] * buffer.shape[2])
-        output_buffer[actual_index] = vc.mapping_registers()[0]
+        output_buffer[actual_index] = write_op.register
 
     # Do the first FFT on the correlation buffer accross the first axis
     vd.fft.fft(
@@ -48,18 +53,21 @@ def padded_cross_correlation(
     )
 
     # Again, we skip reading the zero-padded values from the input
-    @vd.map_registers([vc.c64])
+    @vd.map #_registers([vc.c64])
     def input_mapping(input_buffer: vc.Buffer[vc.c64]):
-        in_layer_index = vc.mapping_index() % (
+        read_op = vd.fft.mapped_read_op()
+
+        in_layer_index = read_op.io_index % (
             buffer.shape[1] * buffer.shape[2]
         )
 
         vc.if_statement(in_layer_index / buffer.shape[2] < signal_shape[1])
-        vc.mapping_registers()[0][:] = input_buffer[vc.mapping_index()]
+        read_op.register[:] = input_buffer[read_op.io_index]
         vc.else_statement()
-        vc.mapping_registers()[0][:] = "vec2(0)"
+        read_op.register[:] = "vec2(0)"
         vc.end()
 
+    """
     @vd.map_registers([vc.c64])
     def kernel_mapping(kernel_buffer: vc.Buffer[vc.c64]):
         img_val = vc.mapping_registers()[0]
@@ -87,14 +95,15 @@ def padded_cross_correlation(
         )
 
         read_register[:] = kernel_buffer[transposed_index]
-        img_val[:] = vc.mult_conj_c64(read_register, img_val)
+        img_val[:] = vc.mult_conj_c64(read_register, img_val)"""
 
     vd.fft.convolve(
         buffer,
         buffer,
         kernel,
         input_map=input_mapping,
-        kernel_map=kernel_mapping,
+        transposed_kernel=transposed_kernel,
+        #kernel_map=kernel_mapping,
         axis=1
     )
 
@@ -105,7 +114,15 @@ def test_function(config: Config,
                     buffer: vd.Buffer,
                     kernel: vd.Buffer):
     signal_size = fft_size // config.signal_factor
-    padded_cross_correlation(buffer, kernel, (signal_size, signal_size))
+    padded_cross_correlation(buffer, kernel, (signal_size, signal_size), False)
+
+def test_function_transpose(config: Config,
+                    fft_size: int,
+                    buffer: vd.Buffer,
+                    kernel: vd.Buffer):
+    signal_size = fft_size // config.signal_factor
+    padded_cross_correlation(buffer, kernel, (signal_size, signal_size), True)
 
 if __name__ == "__main__":
     entrypoint("vkdispatch", run_vkdispatch, 11, test_function)
+    entrypoint("vkdispatch_transpose", run_vkdispatch, 11, test_function_transpose)

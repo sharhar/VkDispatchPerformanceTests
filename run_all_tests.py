@@ -6,10 +6,10 @@ from pathlib import Path
 
 import make_graph
 
-DATA_SIZE=2**26
-ITER_COUNT=150
-BATCH_SIZE=15
-REPEATS=3
+DATA_SIZE=2**27
+ITER_COUNT=200
+BATCH_SIZE=20
+REPEATS=4
 
 cuda_home_dir = os.environ.get('CUDA_HOME', None)
 
@@ -48,54 +48,54 @@ def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
 
     make_graph.make_graph(test_name, title, xlabel, ylabel)
 
-run_test(
-    test_name="fft_nonstrided",
-    title="Nonstrided FFT Performance",
-    xlabel="FFT Size",
-    ylabel="GB/s (higher is better)"
-)
+# run_test(
+#     test_name="fft_nonstrided",
+#     title="Nonstrided FFT Performance",
+#     xlabel="FFT Size",
+#     ylabel="GB/s (higher is better)"
+# )
 
-run_test(
-    test_name="fft_strided",
-    title="Strided FFT Performance",
-    xlabel="FFT Size",
-    ylabel="GB/s (higher is better)"
-)
+# run_test(
+#     test_name="fft_strided",
+#     title="Strided FFT Performance",
+#     xlabel="FFT Size",
+#     ylabel="GB/s (higher is better)"
+# )
 
-run_test(
-    test_name="fft_2d",
-    title="2D FFT Performance",
-    xlabel="FFT Size",
-    ylabel="GB/s (higher is better)"
-)
+# run_test(
+#     test_name="fft_2d",
+#     title="2D FFT Performance",
+#     xlabel="FFT Size",
+#     ylabel="GB/s (higher is better)"
+# )
 
-run_test(
-    test_name="conv_scaled_nvidia",
-    title="NVidia Scaled Convolution Performance",
-    xlabel="Convolution Size (FFT size)",
-    ylabel="ms (lower is better)"
-)
+# run_test(
+#     test_name="conv_scaled_nvidia",
+#     title="NVidia Scaled Convolution Performance",
+#     xlabel="Convolution Size (FFT size)",
+#     ylabel="ms (lower is better)"
+# )
 
-run_test(
-    test_name="conv_scaled_control",
-    title="Control Scaled Convolution Performance",
-    xlabel="Convolution Size (FFT size)", 
-    ylabel="GB/s (higher is better)"
-)
+# run_test(
+#     test_name="conv_scaled_control",
+#     title="Control Scaled Convolution Performance",
+#     xlabel="Convolution Size (FFT size)", 
+#     ylabel="GB/s (higher is better)"
+# )
 
-run_test(
-    test_name="conv_scaled_comparison",
-    title="Scaled Convolution Performance Comparison",
-    xlabel="Convolution Size (FFT size)", 
-    ylabel="Speed Ratio (higher is better)"
-)
+# run_test(
+#     test_name="conv_scaled_comparison",
+#     title="Scaled Convolution Performance Comparison",
+#     xlabel="Convolution Size (FFT size)", 
+#     ylabel="Speed Ratio (higher is better)"
+# )
 
-run_test(
-    test_name="conv_2d",
-    title="2D Convolution Performance",
-    xlabel="Convolution Size (FFT size)", 
-    ylabel="GB/s (higher is better)"
-)
+# run_test(
+#     test_name="conv_2d",
+#     title="2D Convolution Performance",
+#     xlabel="Convolution Size (FFT size)", 
+#     ylabel="GB/s (higher is better)"
+# )
 
 run_test(
     test_name="conv_2d_padded",
