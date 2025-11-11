@@ -40,6 +40,8 @@ def get_backend_color(backend_name: str) -> Tuple[float, float, float]:
         return adjust_lightness(color_base_vulkan, 0.8)
     elif backend_name == "vkdispatch_transpose":
         return adjust_lightness(color_base_vulkan, 1.1)
+    elif backend_name == "vkdispatch_naive":
+        return adjust_lightness(color_base_vulkan, 0.6)
     elif backend_name == "vkfft":
         return adjust_lightness(color_base_vulkan, 1.4)
     
@@ -66,6 +68,8 @@ def sort_backend(backends: Set[str]) -> List[str]:
         sorted_list.append("vkdispatch")
     if "vkdispatch_transpose" in backends:
         sorted_list.append("vkdispatch_transpose")
+    if "vkdispatch_naive" in backends:
+        sorted_list.append("vkdispatch_naive")
     if "vkfft" in backends:
         sorted_list.append("vkfft")
 

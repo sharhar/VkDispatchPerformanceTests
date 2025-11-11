@@ -19,21 +19,33 @@ def padded_cross_correlation(
         buffer.shape[2]
     )
 
-    # Fill input buffer with zeros where needed
-    @vd.map #_registers([vc.c64])
-    def initial_input_mapping(input_buffer: vc.Buffer[vc.c64]):
-        read_op = vd.fft.mapped_read_op()
-        trimmed_index_vec = vc.ravel_index(read_op.io_index, trimmed_shape).to_register()
-        actual_index = vc.unravel_index(trimmed_index_vec, buffer.shape)
-        read_op.read_from_buffer(input_buffer, io_index=actual_index)
+    # Transpose io index to avoid excluded regions in the padded buffer
+    def transpose_index(io_index: vc.ShaderVariable):
+        return vc.unravel_index(
+            vc.ravel_index(
+                io_index,
+                trimmed_shape
+            ).to_register(),
+            buffer.shape
+        )
 
-    # Remap output indicies to match the actual buffer shape
-    @vd.map #_registers([vc.c64])
-    def initial_output_mapping(output_buffer: vc.Buffer[vc.c64]):
+    @vd.map 
+    def input_mapping(input_buffer: vc.Buffer[vc.c64]):
+        read_op = vd.fft.mapped_read_op()
+
+        read_op.read_from_buffer(
+            input_buffer,
+            io_index=transpose_index(read_op.io_index)
+        )
+
+    @vd.map
+    def output_mapping(output_buffer: vc.Buffer[vc.c64]):
         write_op = vd.fft.mapped_write_op()
-        trimmed_index_vec = vc.ravel_index(write_op.io_index, trimmed_shape).to_register()
-        actual_index = vc.unravel_index(trimmed_index_vec, buffer.shape)
-        write_op.write_to_buffer(output_buffer, io_index=actual_index)
+
+        write_op.write_to_buffer(
+            output_buffer,
+            io_index=transpose_index(write_op.io_index)
+        )
 
     # Do the first FFT on the correlation buffer accross the first axis
     vd.fft.fft(
@@ -44,8 +56,8 @@ def padded_cross_correlation(
             signal_shape[1],
             buffer.shape[2]
         ),
-        input_map=initial_input_mapping,
-        output_map=initial_output_mapping,
+        input_map=input_mapping,
+        output_map=output_mapping,
         input_signal_range=(0, signal_shape[1])
     )
     
@@ -73,6 +85,20 @@ def test_function_transpose(config: Config,
     signal_size = fft_size // config.signal_factor
     padded_cross_correlation(buffer, kernel, (signal_size, signal_size), True)
 
+@vd.shader("buff.size")
+def convolve_naive(buff: vc.Buff[vc.c64], kernel: vc.Buff[vc.c64]):
+    ind = vc.global_invocation_id().x
+    buff[ind] = vc.mult_complex(buff[ind], kernel[ind].conjugate())
+
+def test_function_naive(config: Config,
+                    fft_size: int,
+                    buffer: vd.Buffer,
+                    kernel: vd.Buffer):
+    vd.fft.fft2(buffer)
+    convolve_naive(buffer, kernel)
+    vd.fft.ifft2(buffer)
+
 if __name__ == "__main__":
     entrypoint("vkdispatch", run_vkdispatch, 11, test_function)
     entrypoint("vkdispatch_transpose", run_vkdispatch, 11, test_function_transpose)
+    entrypoint("vkdispatch_naive", run_vkdispatch, 11, test_function_naive)
