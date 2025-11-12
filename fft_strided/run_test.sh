@@ -21,14 +21,17 @@ echo "Iteration Count: $ITER_COUNT"
 echo "Batch Size: $BATCH_SIZE"
 echo "Repeats: $REPEATS"
 
+if [[ $(uname) != "Darwin" ]]; then
+    echo "Running PyTorch FFT..."
+    python3 ../torch_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
+
+    echo "Running ZipFFT FFT..."
+    python3 ../zipfft_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
+fi
+
 echo "Running Vkdispatch FFT..."
 python3 ../vkdispatch_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
 
 echo "Running VKFFT FFT..."
 python3 ../vkfft_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
 
-echo "Running PyTorch FFT..."
-python3 ../torch_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
-
-echo "Running ZipFFT FFT..."
-python3 ../zipfft_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS

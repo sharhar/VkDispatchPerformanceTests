@@ -10,9 +10,8 @@ def test_function(config: Config,
                     fft_size: int,
                     buffer: vd.Buffer,
                     kernel: vd.Buffer):
-    print(f"Running 2D convolution with FFT size {buffer.shape}")
-    print(f"Buffer shape: {buffer.shape}, Kernel shape: {kernel.shape}")
     vd.vkfft.convolve2D(buffer, kernel)
 
 if __name__ == "__main__":
-    entrypoint("vkfft", run_vkdispatch, 11, test_function)
+    if vd.get_context().is_apple():
+        entrypoint("vkfft", run_vkdispatch, 11, test_function)

@@ -21,16 +21,18 @@ echo "Iteration Count: $ITER_COUNT"
 echo "Batch Size: $BATCH_SIZE"
 echo "Repeats: $REPEATS"
 
-# echo "Running cuFFT FFT..."
-# $NVCC -O2 -std=c++17 ../cufft_test.cu -gencode arch=compute_${ARCH},code=sm_${ARCH} -lcufft -lculibos -o cufft_test.exec
-# ./cufft_test.exec $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
-# rm cufft_test.exec
+if [[ $(uname) != "Darwin" ]]; then
+    echo "Running cuFFT FFT..."
+    $NVCC -O2 -std=c++17 ../cufft_test.cu -gencode arch=compute_${ARCH},code=sm_${ARCH} -lcufft -lculibos -o cufft_test.exec
+    ./cufft_test.exec $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
+    rm cufft_test.exec
+
+    echo "Running PyTorch FFT..."
+    python3 ../torch_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
+
+    echo "Running ZipFFT FFT..."
+    python3 ../zipfft_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
+fi
 
 echo "Running Vkdispatch FFT..."
 python3 ../vkdispatch_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
-
-# echo "Running PyTorch FFT..."
-# python3 ../torch_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
-
-# echo "Running ZipFFT FFT..."
-# python3 ../zipfft_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
