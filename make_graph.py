@@ -243,7 +243,7 @@ def save_merged_csv(merged: MergedType, backends: Set[str], fft_sizes: Set[int],
                     })
 
 def make_graph(test_name: str, title: str, xlabel: str, ylabel: str):
-    src_dir = os.path.join(test_name, "test_results")
+    src_dir = os.path.join("tests", test_name, "test_results")
     out_dir = os.path.join("test_results", test_name)
 
     copy_files(src_dir, out_dir)

@@ -49,7 +49,7 @@ def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
              str(BATCH_SIZE),
              str(REPEATS),
              str(ARCH)],
-            cwd=Path(test_name).resolve())
+            cwd=Path(f"tests/{test_name}").resolve())
 
     make_graph.make_graph(test_name, title, xlabel, ylabel)
 
