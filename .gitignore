@@ -15,6 +15,7 @@ __pycache__/
 .vscode/
 
 tests/conv_scaled_nvidia/dependencies/
+tests/vkfft_control/dependencies/
 
 # Distribution / packaging
 .Python
