@@ -16,8 +16,8 @@ def get_test_data(filename: str) -> Dict[int, Tuple[float, float]]:
     
     return results
 
-cufft_data = get_test_data('../test_results/conv_scaled_nvidia/cufft.csv')
-cufftdx_data = get_test_data('../test_results/conv_scaled_nvidia/cufftdx.csv')
+cufft_data = get_test_data('../../test_results/conv_scaled_nvidia/cufft.csv')
+cufftdx_data = get_test_data('../../test_results/conv_scaled_nvidia/cufftdx.csv')
 
 control_latex_table = """\\begin{table}[htbp]
 \\caption{Comparison of Execution time (ms) for Batched Scaling Convolution Operations from Nvidia's benchmark}
@@ -42,14 +42,14 @@ control_latex_table += """\\hline
 \\end{center}
 \\end{table}"""
 
-with open('control_latex_table.tex', 'w') as f:
+with open('nvidia_control.tex', 'w') as f:
     f.write(control_latex_table)
 
-my_cufft_data = get_test_data('../test_results/conv_scaled_control/cufft.csv')
-my_cufftdx_data = get_test_data('../test_results/conv_scaled_control/zipfft.csv')
+my_cufft_data = get_test_data('../../test_results/conv_scaled_control/cufft.csv')
+my_cufftdx_data = get_test_data('../../test_results/conv_scaled_control/zipfft.csv')
 
 latex_table = """\\begin{table}[htbp]
-\\caption{Comparison of Effective Bandwidth (BG/s) for Batched Scaling Convolution Operations}
+\\caption{Comparison of Effective Bandwidth (GB/s) for Batched Scaling Convolution Operations}
 \\begin{center}
 \\begin{tabular}{c c c c}
 \\hline
@@ -71,14 +71,14 @@ latex_table += """\\hline
 \\end{center}
 \\end{table}"""
 
-with open('my_latex_table.tex', 'w') as f:
+with open('custom_cuda.tex', 'w') as f:
     f.write(latex_table)
 
-my_vkdispatch_data = get_test_data('../test_results/conv_scaled_control/vkdispatch.csv')
-my_vkdispatch_naive_data = get_test_data('../test_results/conv_scaled_control/vkdispatch_naive.csv')
+my_vkdispatch_data = get_test_data('../../test_results/conv_scaled_control/vkdispatch.csv')
+my_vkdispatch_naive_data = get_test_data('../../test_results/conv_scaled_control/vkdispatch_naive.csv')
 
 latex_table = """\\begin{table}[htbp]
-\\caption{Comparison of Effective Bandwidth (BG/s) for Batched Scaling Convolution Operations in vkdispatch}
+\\caption{Comparison of Effective Bandwidth (GB/s) for Batched Scaling Convolution Operations in vkdispatch}
 \\begin{center}
 \\begin{tabular}{c c c c}
 \\hline
@@ -100,5 +100,5 @@ latex_table += """\\hline
 \\end{center}
 \\end{table}"""
 
-with open('vkdispatch_latex_table.tex', 'w') as f:
+with open('custom_vulkan.tex', 'w') as f:
     f.write(latex_table)

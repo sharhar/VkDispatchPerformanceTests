@@ -35,6 +35,8 @@ def get_backend_color(backend_name: str) -> Tuple[float, float, float]:
         return adjust_lightness(color_base_nvidia, 0.8)
     elif backend_name == "cufftdx":
         return adjust_lightness(color_base_nvidia, 1.4)
+    elif backend_name == "cuda":
+        return adjust_lightness(color_base_nvidia, 1.2)
     
     elif backend_name == "vkdispatch":
         return adjust_lightness(color_base_vulkan, 0.8)
@@ -44,6 +46,8 @@ def get_backend_color(backend_name: str) -> Tuple[float, float, float]:
         return adjust_lightness(color_base_vulkan, 0.6)
     elif backend_name == "vkfft":
         return adjust_lightness(color_base_vulkan, 1.4)
+    elif backend_name == "vulkan":
+        return adjust_lightness(color_base_vulkan, 1.0)
     
     elif backend_name == "torch":
         return adjust_lightness(color_base_torch, 0.8)
@@ -72,11 +76,15 @@ def sort_backend(backends: Set[str]) -> List[str]:
         sorted_list.append("vkdispatch_naive")
     if "vkfft" in backends:
         sorted_list.append("vkfft")
+    if "vulkan" in backends:
+        sorted_list.append("vulkan")
 
     if "cufft" in backends:
         sorted_list.append("cufft")
     if "cufftdx" in backends:
         sorted_list.append("cufftdx")
+    if "cuda" in backends:
+        sorted_list.append("cuda")
 
     if "torch" in backends:
         sorted_list.append("torch")

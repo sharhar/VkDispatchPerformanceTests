@@ -26,7 +26,7 @@ def extract_data_from_log(log_file_path):
 def write_data_to_csv(backend, data, csv_file_path):
     with open(csv_file_path, 'w', newline='') as csvfile:
         csv_writer = csv.writer(csvfile)
-        csv_writer.writerow(['Backend', 'FFT Size', 'GB/s', 'GB/s Std Dev'])
+        csv_writer.writerow(['Backend', 'FFT Size', 'Mean', 'Std Dev'])
         for fft_size in sorted(data.keys()):
             gbps, gbps_std = data[fft_size]
 
@@ -39,6 +39,6 @@ vulkan_data = extract_data_from_log("vkfft_control_vulkan_output.log")
 cuda_data = extract_data_from_log("vkfft_control_cuda_output.log")
 cufft_data = extract_data_from_log("vkfft_control_cufft_output.log")
 
-write_data_to_csv("vulkan", vulkan_data, "test_results/vulkan_performance.csv")
-write_data_to_csv("cuda", cuda_data, "test_results/cuda_performance.csv")
-write_data_to_csv("cufft", cufft_data, "test_results/cufft_performance.csv")
+write_data_to_csv("vulkan", vulkan_data, "test_results/vulkan.csv")
+write_data_to_csv("cuda", cuda_data, "test_results/cuda.csv")
+write_data_to_csv("cufft", cufft_data, "test_results/cufft.csv")

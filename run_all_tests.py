@@ -82,10 +82,19 @@ def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
 #         ylabel="ms (lower is better)"
 #     )
 
+
+
+# run_test(
+#     test_name="conv_scaled_control",
+#     title="Control Scaled Convolution Performance",
+#     xlabel="Convolution Size (FFT size)", 
+#     ylabel="GB/s (higher is better)"
+# )
+
 run_test(
-    test_name="conv_scaled_control",
-    title="Control Scaled Convolution Performance",
-    xlabel="Convolution Size (FFT size)", 
+    test_name="vkfft_control",
+    title="1D FFT Performance",
+    xlabel="FFT Size (FFT size)", 
     ylabel="GB/s (higher is better)"
 )
 
