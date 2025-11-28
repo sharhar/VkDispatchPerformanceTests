@@ -11,8 +11,8 @@ def run_torch(config: Config,
               io_count: int,
               gpu_function: Callable):
     shape = config.make_shape(fft_size)
-    random_data = config.make_random_data(fft_size)
-    random_data_kernel = config.make_random_data(fft_size)
+    #random_data = config.make_random_data(fft_size)
+    #random_data_kernel = config.make_random_data(fft_size)
 
     buffer = torch.empty(
         shape,
@@ -26,8 +26,8 @@ def run_torch(config: Config,
         device='cuda'
     )
 
-    buffer.copy_(torch.from_numpy(random_data).to('cuda'))
-    kernel.copy_(torch.from_numpy(random_data_kernel).to('cuda'))
+    #buffer.copy_(torch.from_numpy(random_data).to('cuda'))
+    #kernel.copy_(torch.from_numpy(random_data_kernel).to('cuda'))
 
     stream = torch.cuda.Stream()
 

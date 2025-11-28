@@ -114,7 +114,6 @@ static double run_cufft_case(const Config& cfg, int fft_size) {
     checkCuda(cudaEventRecord(evA), "record A");
     for (int it = 0; it < cfg.iter_count; ++it)
         exec_cufft_batch(plan, d_data, d_kernel, cfg.data_size);
-        //checkCuFFT(cufftExecC2C(plan, d_data, d_data, CUFFT_FORWARD), "exec");
     checkCuda(cudaEventRecord(evB), "record B");
     checkCuda(cudaEventSynchronize(evB), "sync B");
     checkCuda(cudaDeviceSynchronize(), "warmup sync");

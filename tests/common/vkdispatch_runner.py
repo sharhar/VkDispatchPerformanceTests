@@ -11,14 +11,14 @@ def run_vkdispatch(config: Config,
                     io_count: int,
                     gpu_function: Callable) -> float:
     shape = config.make_shape(fft_size)
-    random_data = config.make_random_data(fft_size)
-    random_data_kernel = config.make_random_data(fft_size)
+    #random_data = config.make_random_data(fft_size)
+    #random_data_kernel = config.make_random_data(fft_size)
 
     buffer = vd.Buffer(shape, var_type=vd.complex64)
-    buffer.write(random_data)
+    #buffer.write(random_data)
 
     kernel = vd.Buffer(shape, var_type=vd.complex64)
-    kernel.write(random_data_kernel)
+    #kernel.write(random_data_kernel)
 
     graph = vd.CommandGraph()
     old_graph = vd.set_global_graph(graph)
