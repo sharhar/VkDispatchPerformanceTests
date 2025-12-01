@@ -24,7 +24,7 @@ echo "Repeats: $REPEATS"
 
 if [[ $(uname) != "Darwin" ]]; then
     echo "Running cuFFT FFT..."
-    $NVCC -O2 -std=c++17 ../cufft_test.cu -gencode arch=compute_${ARCH},code=sm_${ARCH} -lcufft -lculibos -o cufft_test.exec
+    $NVCC -O3 -std=c++17 ../cufft_test.cu -gencode arch=compute_${ARCH},code=sm_${ARCH} -lcufft -lculibos -o cufft_test.exec
     ./cufft_test.exec $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
     rm cufft_test.exec
 

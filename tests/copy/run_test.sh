@@ -1,6 +1,7 @@
 #!/bin/bash
 
 mkdir -p test_results
+
 cd test_results
 
 if [ -n "${CUDA_HOME:-}" ]; then
@@ -15,6 +16,7 @@ BATCH_SIZE=$3
 REPEATS=$4
 ARCH=$5
 
+
 echo "Running performance tests with the following parameters:"
 echo "Data Size: $DATA_SIZE"
 echo "Iteration Count: $ITER_COUNT"
@@ -22,17 +24,20 @@ echo "Batch Size: $BATCH_SIZE"
 echo "Repeats: $REPEATS"
 
 if [[ $(uname) != "Darwin" ]]; then
-    echo "Running cuFFT FFT..."
+    echo "Running cuFFT Test..."
     $NVCC -O3 -std=c++17 ../cufft_test.cu -gencode arch=compute_${ARCH},code=sm_${ARCH} -lcufft -lculibos -o cufft_test.exec
     ./cufft_test.exec $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
     rm cufft_test.exec
 
-    echo "Running PyTorch FFT..."
-    python3 ../torch_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
+    #echo "Running PyTorch Test..."
+    #python3 ../torch_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
 
-    echo "Running ZipFFT FFT..."
-    python3 ../zipfft_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
+    #echo "Running ZipFFT Test..."
+    #python3 ../zipfft_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
 fi
 
-echo "Running Vkdispatch FFT..."
+echo "Running Vkdispatch Test..."
 python3 ../vkdispatch_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
+
+#echo "Running VKFFT Test..."
+#python3 ../vkfft_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
