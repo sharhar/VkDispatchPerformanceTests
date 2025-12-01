@@ -60,50 +60,48 @@ run_test(
     ylabel="GB/s (higher is better)"
 )
 
-# run_test(
-#     test_name="fft_nonstrided",
-#     title="Nonstrided FFT Performance",
-#     xlabel="FFT Size",
-#     ylabel="GB/s (higher is better)"
-# )
+run_test(
+    test_name="fft_nonstrided",
+    title="Nonstrided FFT Performance",
+    xlabel="FFT Size",
+    ylabel="GB/s (higher is better)"
+)
 
-exit()
+run_test(
+    test_name="fft_strided",
+    title="Strided FFT Performance",
+    xlabel="FFT Size",
+    ylabel="GB/s (higher is better)"
+)
 
-# run_test(
-#     test_name="fft_strided",
-#     title="Strided FFT Performance",
-#     xlabel="FFT Size",
-#     ylabel="GB/s (higher is better)"
-# )
+run_test(
+    test_name="fft_2d",
+    title="2D FFT Performance",
+    xlabel="FFT Size",
+    ylabel="GB/s (higher is better)"
+)
 
-# run_test(
-#     test_name="fft_2d",
-#     title="2D FFT Performance",
-#     xlabel="FFT Size",
-#     ylabel="GB/s (higher is better)"
-# )
+if platform.system() != "Darwin":
+    run_test(
+        test_name="conv_scaled_nvidia",
+        title="NVidia Scaled Convolution Performance",
+        xlabel="Convolution Size (FFT size)",
+        ylabel="ms (lower is better)"
+    )
 
-# if platform.system() != "Darwin":
-#     run_test(
-#         test_name="conv_scaled_nvidia",
-#         title="NVidia Scaled Convolution Performance",
-#         xlabel="Convolution Size (FFT size)",
-#         ylabel="ms (lower is better)"
-#     )
+run_test(
+    test_name="conv_scaled_control",
+    title="Control Scaled Convolution Performance",
+    xlabel="Convolution Size (FFT size)", 
+    ylabel="GB/s (higher is better)"
+)
 
-# run_test(
-#     test_name="conv_scaled_control",
-#     title="Control Scaled Convolution Performance",
-#     xlabel="Convolution Size (FFT size)", 
-#     ylabel="GB/s (higher is better)"
-# )
-
-# run_test(
-#     test_name="vkfft_control",
-#     title="1D FFT Performance",
-#     xlabel="FFT Size (FFT size)", 
-#     ylabel="GB/s (higher is better)"
-# )
+run_test(
+    test_name="vkfft_control",
+    title="1D FFT Performance",
+    xlabel="FFT Size (FFT size)", 
+    ylabel="GB/s (higher is better)"
+)
 
 run_test(
     test_name="conv_2d",

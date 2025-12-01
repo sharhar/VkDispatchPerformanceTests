@@ -29,8 +29,8 @@ if [[ $(uname) != "Darwin" ]]; then
     ./cufft_test.exec $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
     rm cufft_test.exec
 
-    #echo "Running PyTorch Test..."
-    #python3 ../torch_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
+    echo "Running PyTorch Test..."
+    python3 ../torch_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
 
     #echo "Running ZipFFT Test..."
     #python3 ../zipfft_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
