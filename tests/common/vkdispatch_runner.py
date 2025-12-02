@@ -2,8 +2,6 @@ import vkdispatch as vd
 import numpy as np
 import time
 
-#vd.make_context(device_ids=[1])
-
 from typing import Callable, Tuple
 
 from .config import Config

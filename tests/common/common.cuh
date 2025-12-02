@@ -44,7 +44,7 @@ struct Config {
     int iter_count;
     int iter_batch;
     int run_count;
-    int warmup = 10;   // match Torch script’s warmup
+    int warmup = 10;   // match Torch script's warmup
 };
 
 static Config parse_args(int argc, char** argv) {
@@ -82,7 +82,6 @@ static double run_cufft_case(const Config& cfg, int fft_size) {
     checkCuda(cudaMalloc(&d_kernel, cfg.data_size * sizeof(cufftComplex)), "cudaMalloc d_kernel");
     checkCuda(cudaMemset(d_kernel, 0, cfg.data_size * sizeof(cufftComplex)), "cudaMemset d_kernel");
 
-
     {
         int t = 256, b = int((cfg.data_size + t - 1) / t);
         fill_randomish<<<b,t>>>(d_data, cfg.data_size);
@@ -95,42 +94,75 @@ static double run_cufft_case(const Config& cfg, int fft_size) {
         checkCuda(cudaDeviceSynchronize(), "fill kernel sync");
     }
 
+    // --- Create explicit CUDA stream ---
+    cudaStream_t stream;
+    checkCuda(cudaStreamCreate(&stream), "cudaStreamCreate");
+
     // --- plan bound to the stream ---
     cufftHandle plan;
     make_cufft_handle(&plan, cfg.data_size, fft_size);
+    checkCuFFT(cufftSetStream(plan, stream), "cufftSetStream");
 
-    // --- warmup on the stream ---
+    // --- warmup on the stream (without graph) ---
     for (int i = 0; i < cfg.warmup; ++i)
         exec_cufft_batch(plan, d_data, d_kernel, cfg.data_size);
-
-    //checkCuFFT(cufftExecC2C(plan, d_data, d_data, CUFFT_FORWARD), "warmup");
     
-    checkCuda(cudaDeviceSynchronize(), "warmup sync");
+    checkCuda(cudaStreamSynchronize(stream), "warmup sync");
 
-    // === OPTION A: plain single-stream timing (simple & robust) ===
+    // === CUDA GRAPH CAPTURE ===
+    cudaGraph_t graph;
+    cudaGraphExec_t graphExec;
+
+    // Begin capturing the stream
+    checkCuda(cudaStreamBeginCapture(stream, cudaStreamCaptureModeGlobal), "begin capture");
+
+    // Capture iter_batch FFT operations into the graph
+    for (int b = 0; b < cfg.iter_batch; ++b) {
+        exec_cufft_batch(plan, d_data, d_kernel, cfg.data_size);
+    }
+
+    // End capture and obtain the graph
+    checkCuda(cudaStreamEndCapture(stream, &graph), "end capture");
+
+    // Instantiate the graph into an executable form
+    checkCuda(cudaGraphInstantiate(&graphExec, graph, NULL, NULL, 0), "graph instantiate");
+
+    // Calculate how many times to launch the graph
+    const int num_graph_launches = (cfg.iter_count + cfg.iter_batch - 1) / cfg.iter_batch;
+
+    // === TIMED EXECUTION ===
     cudaEvent_t evA, evB;
     checkCuda(cudaEventCreate(&evA), "evA");
     checkCuda(cudaEventCreate(&evB), "evB");
-    checkCuda(cudaEventRecord(evA), "record A");
-    for (int it = 0; it < cfg.iter_count; ++it)
-        exec_cufft_batch(plan, d_data, d_kernel, cfg.data_size);
-    checkCuda(cudaEventRecord(evB), "record B");
+    
+    checkCuda(cudaEventRecord(evA, stream), "record A");
+    
+    // Launch the graph multiple times to reach iter_count
+    for (int i = 0; i < num_graph_launches; ++i) {
+        checkCuda(cudaGraphLaunch(graphExec, stream), "graph launch");
+    }
+    
+    checkCuda(cudaEventRecord(evB, stream), "record B");
     checkCuda(cudaEventSynchronize(evB), "sync B");
-    checkCuda(cudaDeviceSynchronize(), "warmup sync");
-    float ms = 0.f; checkCuda(cudaEventElapsedTime(&ms, evA, evB), "elapsed");
+    
+    float ms = 0.f;
+    checkCuda(cudaEventElapsedTime(&ms, evA, evB), "elapsed");
     checkCuda(cudaEventDestroy(evA), "dA");
     checkCuda(cudaEventDestroy(evB), "dB");
 
     // Convert elapsed to seconds
     const double seconds = static_cast<double>(ms) / 1000.0;
 
-    // Compute throughput in GB/s (same accounting as Torch: 2 * elems * 8 bytes per exec)
+    // Compute throughput in GB/s
     const double gb_per_exec_once = get_bandwith_scale_factor() * gb_per_exec(cfg.data_size);
-    const double total_execs = static_cast<double>(cfg.iter_count); // * static_cast<double>(cfg.iter_batch);
+    const double total_execs = static_cast<double>(cfg.iter_count);
     const double gb_per_second = (total_execs * gb_per_exec_once) / seconds;
 
     // Cleanup
+    cudaGraphExecDestroy(graphExec);
+    cudaGraphDestroy(graph);
     cufftDestroy(plan);
+    cudaStreamDestroy(stream);
     cudaFree(d_data);
     cudaFree(d_kernel);
 
