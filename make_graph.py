@@ -61,6 +61,8 @@ def get_backend_color(backend_name: str) -> Tuple[float, float, float]:
         return adjust_lightness(color_base_zipfft, 0.8)
     elif backend_name == "zipfft_transpose_smem":
         return adjust_lightness(color_base_zipfft, 0.6)
+    elif backend_name == "zipfft_naive":
+        return adjust_lightness(color_base_zipfft, 1.4)
 
     else:
         raise ValueError(f"Unknown backend name: {backend_name}")
@@ -99,6 +101,8 @@ def sort_backend(backends: Set[str]) -> List[str]:
 
     if "zipfft_transpose_smem" in backends:
         sorted_list.append("zipfft_transpose_smem")
+    if "zipfft_naive" in backends:
+        sorted_list.append("zipfft_naive")
 
     return sorted_list
 

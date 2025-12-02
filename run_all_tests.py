@@ -8,10 +8,10 @@ import platform
 
 import make_graph
 
-DATA_SIZE=2**28
-ITER_COUNT=200
-BATCH_SIZE=20
-REPEATS=5
+DATA_SIZE=2**26
+ITER_COUNT=150
+BATCH_SIZE=15
+REPEATS=3
 
 if platform.system() == "Darwin":
     ARCH=0
@@ -52,6 +52,15 @@ def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
             cwd=Path(f"tests/{test_name}").resolve())
 
     make_graph.make_graph(test_name, title, xlabel, ylabel)
+
+run_test(
+    test_name="conv_2d",
+    title="2D Convolution Performance",
+    xlabel="Convolution Size (FFT size)", 
+    ylabel="GB/s (higher is better)"
+)
+
+exit()
 
 run_test(
     test_name="copy",

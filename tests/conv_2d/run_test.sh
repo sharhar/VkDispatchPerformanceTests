@@ -28,15 +28,15 @@ if [[ $(uname) != "Darwin" ]]; then
     ./cufft_test.exec $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
     rm cufft_test.exec
 
-    echo "Running PyTorch FFT..."
-    python3 ../torch_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
+    #echo "Running PyTorch FFT..."
+    #python3 ../torch_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
 
-    echo "Running ZipFFT FFT..."
-    python3 ../zipfft_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
+    #echo "Running ZipFFT FFT..."
+    #python3 ../zipfft_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
 fi
 
 echo "Running Vkdispatch FFT..."
 python3 ../vkdispatch_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
 
-echo "Running VKFFT FFT..."
-python3 ../vkfft_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
+#echo "Running VKFFT FFT..."
+#python3 ../vkfft_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS

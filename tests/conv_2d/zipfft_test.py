@@ -55,8 +55,8 @@ def test_function_naive(config: Config,
     fft_nonstrided.ifft(buffer)
 
 if __name__ == "__main__":
-    #entrypoint("zipfft", run_torch, 11, test_function)
-    #entrypoint("zipfft_smem", run_torch, 11, test_function_smem)
-    #entrypoint("zipfft_transpose", run_torch, 11, test_function_transpose)
-    #entrypoint("zipfft_transpose_smem", run_torch, 11, test_function_transpose_smem)
+    entrypoint("zipfft", run_torch, 11, test_function)
+    entrypoint("zipfft_smem", run_torch, 11, test_function_smem)
+    entrypoint("zipfft_transpose", run_torch, 11, test_function_transpose)
+    entrypoint("zipfft_transpose_smem", run_torch, 11, test_function_transpose_smem)
     entrypoint("zipfft_naive", run_torch, 11, test_function_naive)
