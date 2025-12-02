@@ -31,13 +31,7 @@ if [[ $(uname) != "Darwin" ]]; then
 
     echo "Running PyTorch Test..."
     python3 ../torch_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
-
-    #echo "Running ZipFFT Test..."
-    #python3 ../zipfft_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
 fi
 
 echo "Running Vkdispatch Test..."
 python3 ../vkdispatch_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
-
-#echo "Running VKFFT Test..."
-#python3 ../vkfft_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
