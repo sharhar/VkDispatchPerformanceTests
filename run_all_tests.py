@@ -10,10 +10,10 @@ import atexit
 
 import make_graph
 
-DATA_SIZE=2**26
-ITER_COUNT=150
-BATCH_SIZE=15
-REPEATS=3
+DATA_SIZE=2**28
+ITER_COUNT=200
+BATCH_SIZE=20
+REPEATS=5
 
 # Track child processes
 child_processes = []
@@ -62,6 +62,37 @@ def run_process(command, capture_stdout=False, cwd=None):
 
     return return_val
 
+if not os.path.isdir('dependencies'):
+    os.mkdir('dependencies')
+    os.chdir('dependencies')
+    run_process([
+        'wget',
+        'https://developer.nvidia.com/downloads/compute/cuFFTDx/redist/cuFFTDx/cuda12/nvidia-mathdx-25.06.1-cuda12.tar.gz'
+    ])
+    run_process([
+        'tar',
+        '-xvf',
+        'nvidia-mathdx-25.06.1-cuda12.tar.gz'
+    ])
+    run_process([
+        'rm',
+        'nvidia-mathdx-25.06.1-cuda12.tar.gz'
+    ])
+
+    run_process([
+        'git',
+        'clone',
+        'https://github.com/NVIDIA/cutlass.git'
+    ])
+    os.chdir('cutlass')
+    run_process([
+        'git',
+        'checkout',
+        'e6e2cc29f5e7611dfc6af0ed6409209df0068cf2'
+    ])
+    os.chdir('..')
+    os.chdir('..')
+
 if platform.system() == "Darwin":
     ARCH=0
 else:
@@ -80,35 +111,23 @@ else:
         ['./arch_code.exec'],
         capture_stdout=True
     )
-    # subprocess.run(
-    #     ['./arch_code.exec'],
-    #     stdout=subprocess.PIPE,
-    #     stderr=subprocess.PIPE,
-    #     text=True,
-    #     check=True
-    # )
 
     ARCH=int(result[0].strip())
 
 def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
     print(f"Running {test_name} test...")
     
-    run_process(['bash', 'run_test.sh',
+    run_process(['bash', '../../run_test.sh',
              str(DATA_SIZE),
              str(ITER_COUNT),
              str(BATCH_SIZE),
              str(REPEATS),
-             str(ARCH)],
+             str(ARCH),
+             "true"],
             cwd=Path(f"tests/{test_name}").resolve())
 
     make_graph.make_graph(test_name, title, xlabel, ylabel)
 
-run_test(
-    test_name="copy",
-    title="Copy Performance",
-    xlabel="FFT Size",
-    ylabel="GB/s (higher is better)"
-)
 run_test(
     test_name="fft_nonstrided",
     title="Nonstrided FFT Performance",
@@ -116,19 +135,28 @@ run_test(
     ylabel="GB/s (higher is better)"
 )
 
-run_test(
-    test_name="fft_strided",
-    title="Strided FFT Performance",
-    xlabel="FFT Size",
-    ylabel="GB/s (higher is better)"
-)
+exit()
 
-run_test(
-    test_name="fft_2d",
-    title="2D FFT Performance",
-    xlabel="FFT Size",
-    ylabel="GB/s (higher is better)"
-)
+# run_test(
+#     test_name="fft_nonstrided",
+#     title="Nonstrided FFT Performance",
+#     xlabel="FFT Size",
+#     ylabel="GB/s (higher is better)"
+# )
+
+# run_test(
+#     test_name="fft_strided",
+#     title="Strided FFT Performance",
+#     xlabel="FFT Size",
+#     ylabel="GB/s (higher is better)"
+# )
+
+# run_test(
+#     test_name="fft_2d",
+#     title="2D FFT Performance",
+#     xlabel="FFT Size",
+#     ylabel="GB/s (higher is better)"
+# )
 
 if platform.system() != "Darwin":
     run_test(
@@ -142,13 +170,6 @@ run_test(
     test_name="conv_scaled_control",
     title="Control Scaled Convolution Performance",
     xlabel="Convolution Size (FFT size)", 
-    ylabel="GB/s (higher is better)"
-)
-
-run_test(
-    test_name="vkfft_control",
-    title="1D FFT Performance",
-    xlabel="FFT Size (FFT size)", 
     ylabel="GB/s (higher is better)"
 )
 

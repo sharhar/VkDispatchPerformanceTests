@@ -4,7 +4,7 @@ float get_bandwith_scale_factor() {
     return 6.0f;
 }
 
-void make_cufft_handle(cufftHandle* plan, long long data_size, int fft_size) {
+void make_cufft_handle(cufftHandle* plan, long long data_size, int fft_size, cudaStream_t stream) {
     const long long dim1 = fft_size;
     const long long dim0 = data_size / dim1;
 
@@ -20,8 +20,8 @@ __global__ void scale_kernel(cufftComplex* data, float scale_factor, long long t
     }
 }
 
-void exec_cufft_batch(cufftHandle plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems) {
+void exec_cufft_batch(cufftHandle plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems, cudaStream_t stream) {
     checkCuFFT(cufftExecC2C(plan, d_data, d_data, CUFFT_FORWARD), "warmup");
-    scale_kernel<<<(total_elems+255)/256,256>>>(d_data, 5.0, total_elems);
+    scale_kernel<<<(total_elems+255)/256,256,0,stream>>>(d_data, 5.0, total_elems);
     checkCuFFT(cufftExecC2C(plan, d_data, d_data, CUFFT_INVERSE), "warmup");
 }

@@ -36,5 +36,5 @@ def parse_args() -> Config:
     )
 
 def get_fft_sizes():
-    return [2**i for i in range(6, 13)]  # FFT sizes from 64 to 4096 (inclusive)
+    return [2**i for i in range(3, 13)]  # FFT sizes from 64 to 4096 (inclusive)
 

@@ -12,9 +12,20 @@
 #include <vector>
 #include <cmath>
 
+#ifndef CUDA_CHECK_AND_EXIT
+#    define CUDA_CHECK_AND_EXIT(error)                                                                      \
+        {                                                                                                   \
+            auto status = static_cast<cudaError_t>(error);                                                  \
+            if (status != cudaSuccess) {                                                                    \
+                std::cout << cudaGetErrorString(status) << " " << __FILE__ << ":" << __LINE__ << std::endl; \
+                std::exit(status);                                                                          \
+            }                                                                                               \
+        }
+#endif // CUDA_CHECK_AND_EXIT
+
 float get_bandwith_scale_factor();
-void make_cufft_handle(cufftHandle* plan, long long data_size, int fft_size);
-void exec_cufft_batch(cufftHandle plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems);
+void make_cufft_handle(cufftHandle* plan, long long data_size, int fft_size, cudaStream_t stream);
+void exec_cufft_batch(cufftHandle plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems, cudaStream_t stream);
 
 __global__ void fill_randomish(cufftComplex* a, long long n){
     long long i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -63,7 +74,7 @@ static Config parse_args(int argc, char** argv) {
 
 static std::vector<int> get_fft_sizes() {
     std::vector<int> sizes;
-    for (int p = 6; p <= 12; ++p) sizes.push_back(1 << p); // 64..4096
+    for (int p = 3; p <= 12; ++p) sizes.push_back(1 << p); // 64..4096
     return sizes;
 }
 
@@ -100,12 +111,11 @@ static double run_cufft_case(const Config& cfg, int fft_size) {
 
     // --- plan bound to the stream ---
     cufftHandle plan;
-    make_cufft_handle(&plan, cfg.data_size, fft_size);
-    checkCuFFT(cufftSetStream(plan, stream), "cufftSetStream");
+    make_cufft_handle(&plan, cfg.data_size, fft_size, stream);
 
     // --- warmup on the stream (without graph) ---
     for (int i = 0; i < cfg.warmup; ++i)
-        exec_cufft_batch(plan, d_data, d_kernel, cfg.data_size);
+        exec_cufft_batch(plan, d_data, d_kernel, cfg.data_size, stream);
     
     checkCuda(cudaStreamSynchronize(stream), "warmup sync");
 
@@ -118,7 +128,7 @@ static double run_cufft_case(const Config& cfg, int fft_size) {
 
     // Capture iter_batch FFT operations into the graph
     for (int b = 0; b < cfg.iter_batch; ++b) {
-        exec_cufft_batch(plan, d_data, d_kernel, cfg.data_size);
+        exec_cufft_batch(plan, d_data, d_kernel, cfg.data_size, stream);
     }
 
     // End capture and obtain the graph
