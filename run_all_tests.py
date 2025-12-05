@@ -10,10 +10,10 @@ import atexit
 
 import make_graph
 
-DATA_SIZE=2**28
+DATA_SIZE=2**27
 ITER_COUNT=200
 BATCH_SIZE=20
-REPEATS=5
+REPEATS=3
 
 # Track child processes
 child_processes = []

@@ -23,8 +23,14 @@
         }
 #endif // CUDA_CHECK_AND_EXIT
 
+const char* get_test_name();
+
 float get_bandwith_scale_factor();
+
+template<int FFTSize>
 void make_cufft_handle(cufftHandle* plan, long long data_size, int fft_size, cudaStream_t stream);
+
+template<int FFTSize, int FFTsInBlock>
 void exec_cufft_batch(cufftHandle plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems, cudaStream_t stream);
 
 __global__ void fill_randomish(cufftComplex* a, long long n){
@@ -72,18 +78,13 @@ static Config parse_args(int argc, char** argv) {
     return c;
 }
 
-static std::vector<int> get_fft_sizes() {
-    std::vector<int> sizes;
-    for (int p = 3; p <= 12; ++p) sizes.push_back(1 << p); // 64..4096
-    return sizes;
-}
-
 static double gb_per_exec(long long total_elems) {
     const double bytes = static_cast<double>(total_elems) * 8.0;
     return bytes / (1024.0 * 1024.0 * 1024.0);
 }
 
-static double run_cufft_case(const Config& cfg, int fft_size) {
+template<int FFTSize, int FFTsInBlock>
+static double run_cufft_case(const Config& cfg) {
 
     cufftComplex* d_data = nullptr;
     checkCuda(cudaMalloc(&d_data, cfg.data_size * sizeof(cufftComplex)), "cudaMalloc d_data");
@@ -111,11 +112,11 @@ static double run_cufft_case(const Config& cfg, int fft_size) {
 
     // --- plan bound to the stream ---
     cufftHandle plan;
-    make_cufft_handle(&plan, cfg.data_size, fft_size, stream);
+    make_cufft_handle<FFTSize>(&plan, cfg.data_size, stream);
 
     // --- warmup on the stream (without graph) ---
     for (int i = 0; i < cfg.warmup; ++i)
-        exec_cufft_batch(plan, d_data, d_kernel, cfg.data_size, stream);
+        exec_cufft_batch<FFTSize, FFTsInBlock>(plan, d_data, d_kernel, cfg.data_size, stream);
     
     checkCuda(cudaStreamSynchronize(stream), "warmup sync");
 
@@ -128,7 +129,7 @@ static double run_cufft_case(const Config& cfg, int fft_size) {
 
     // Capture iter_batch FFT operations into the graph
     for (int b = 0; b < cfg.iter_batch; ++b) {
-        exec_cufft_batch(plan, d_data, d_kernel, cfg.data_size, stream);
+        exec_cufft_batch<FFTSize, FFTsInBlock>(plan, d_data, d_kernel, cfg.data_size, stream);
     }
 
     // End capture and obtain the graph
@@ -179,11 +180,44 @@ static double run_cufft_case(const Config& cfg, int fft_size) {
     return gb_per_second;
 }
 
+template<int FFTSize, int FFTsInBlock>
+void do_fft_size_run(std::ofstream& out, const Config& cfg, const std::string& test_name) {
+    std::vector<double> rates;
+    rates.reserve(cfg.run_count);
+
+    for (int r = 0; r < cfg.run_count; ++r) {
+        const double gbps = run_cufft_case<FFTSize, FFTsInBlock>(cfg);
+        std::cout << "FFT Size: " << FFTSize << ", Throughput: " << std::fixed << std::setprecision(4)
+                    << gbps << " GB/s\n";
+        rates.push_back(gbps);
+    }
+
+    // Compute mean/std
+    double mean = 0.0;
+    for (double v : rates) mean += v;
+    mean /= static_cast<double>(rates.size());
+
+    double var = 0.0;
+    for (double v : rates) {
+        const double d = v - mean;
+        var += d * d;
+    }
+    var /= static_cast<double>(rates.size());
+    const double stdev = std::sqrt(var);
+
+    // Round to 2 decimals like your Torch script
+    out << test_name << "," << FFTSize;
+    out << std::fixed << std::setprecision(4);
+    for (double v : rates) out << "," << v;
+    out << "," << mean << "," << stdev << "\n";
+}
+
 int main(int argc, char** argv) {
     const Config cfg = parse_args(argc, argv);
-    const auto sizes = get_fft_sizes();
 
-    const std::string output_name = "cufft.csv";
+    const std::string test_name = get_test_name(); 
+
+    const std::string output_name = test_name + ".csv";
     std::ofstream out(output_name);
     if (!out) {
         std::cerr << "Failed to open output file: " << output_name << "\n";
@@ -200,36 +234,16 @@ int main(int argc, char** argv) {
     for (int i = 0; i < cfg.run_count; ++i) out << ",Run " << (i + 1) << " (GB/s)";
     out << ",Mean,Std Dev\n";
 
-    for (int fft_size : sizes) {
-        std::vector<double> rates;
-        rates.reserve(cfg.run_count);
-
-        for (int r = 0; r < cfg.run_count; ++r) {
-            const double gbps = run_cufft_case(cfg, fft_size);
-            std::cout << "FFT Size: " << fft_size << ", Throughput: " << std::fixed << std::setprecision(4)
-                      << gbps << " GB/s\n";
-            rates.push_back(gbps);
-        }
-
-        // Compute mean/std
-        double mean = 0.0;
-        for (double v : rates) mean += v;
-        mean /= static_cast<double>(rates.size());
-
-        double var = 0.0;
-        for (double v : rates) {
-            const double d = v - mean;
-            var += d * d;
-        }
-        var /= static_cast<double>(rates.size());
-        const double stdev = std::sqrt(var);
-
-        // Round to 2 decimals like your Torch script
-        out << "cufft," << fft_size;
-        out << std::fixed << std::setprecision(4);
-        for (double v : rates) out << "," << v;
-        out << "," << mean << "," << stdev << "\n";
-    }
+    do_fft_size_run<8, 256>(out, cfg, test_name);
+    do_fft_size_run<16, 128>(out, cfg, test_name);
+    do_fft_size_run<32, 64>(out, cfg, test_name);
+    do_fft_size_run<64, 32>(out, cfg, test_name);
+    do_fft_size_run<128, 32>(out, cfg, test_name);
+    do_fft_size_run<256, 32>(out, cfg, test_name);
+    do_fft_size_run<512, 16>(out, cfg, test_name);
+    do_fft_size_run<1024, 8>(out, cfg, test_name);
+    do_fft_size_run<2048, 4>(out, cfg, test_name);
+    do_fft_size_run<4096, 2>(out, cfg, test_name);
 
     std::cout << "Results saved to " << output_name << "\n";
     return 0;

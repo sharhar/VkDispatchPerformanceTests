@@ -30,49 +30,34 @@ echo "Iteration Count: $ITER_COUNT"
 echo "Batch Size: $BATCH_SIZE"
 echo "Repeats: $REPEATS"
 
+
 if [[ "$RUN_CUDA" == "true" ]] || [[ "$RUN_CUDA" == "1" ]]; then
-    # if [ -f "../cufft_test.cu" ]; then
-    #     echo "Running cuFFT Test..."
-    #     $NVCC -O3 -std=c++17 ../cufft_test.cu -gencode arch=compute_${ARCH},code=sm_${ARCH} -lcufft -lculibos -o cufft_test.exec
-    #     ./cufft_test.exec $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
-    #     rm cufft_test.exec
-    # else
-    #     echo "Skipping cuFFT Test - ../cufft_test.cu not found"
-    # fi
+    if [ -f "../cufft_test.cu" ]; then
+        echo "Compiling cuFFT Test..."
+        $NVCC -O3 -std=c++17 ../cufft_test.cu -gencode arch=compute_${ARCH},code=sm_${ARCH} -lcufft -lculibos -o cufft_test.exec
+        echo "Running cuFFT Test..."
+        ./cufft_test.exec $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
+        rm cufft_test.exec
+    else
+        echo "Skipping cuFFT Test - ../cufft_test.cu not found"
+    fi
 
     if [ -f "../cufftdx_test.cu" ]; then
-        echo "Running cuFFTdx Test..."
+        echo "Compiling cuFFTdx Test..."
         $NVCC ../cufftdx_test.cu \
                     -std=c++17 -O3 \
                     -I ../../../dependencies/cutlass/include \
                     -I ../../../dependencies/nvidia-mathdx-25.06.1/nvidia/mathdx/25.06/include \
-                    -DFFT_SIZE=1024 \
                     -DFFTS_PER_BLOCK=4 \
                     -DARCH=${ARCH}0 \
                     -gencode arch=compute_${ARCH},code=sm_${ARCH} \
                     -lcufft -lculibos \
                     -o cufftdx_test.exec
-        
+        echo "Running cuFFTdx Test..."
         ./cufftdx_test.exec $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
         rm cufftdx_test.exec
     else
         echo "Skipping cuFFTdx Test - ../cufftdx_test.cu not found"
-    fi
-
-    exit 0
-
-    if [ -f "../torch_test.py" ]; then
-        echo "Running PyTorch Test..."
-        python3 ../torch_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
-    else
-        echo "Skipping PyTorch Test - ../torch_test.py not found"
-    fi
-
-    if [ -f "../zipfft_test.py" ]; then
-        echo "Running ZipFFT Test..."
-        python3 ../zipfft_test.py $DATA_SIZE $ITER_COUNT $BATCH_SIZE $REPEATS
-    else
-        echo "Skipping ZipFFT Test - ../zipfft_test.py not found"
     fi
 fi
 

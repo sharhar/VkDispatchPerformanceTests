@@ -16,11 +16,16 @@
 #define ARCH 800 // Example: sm_80
 #endif
 
+const char* get_test_name() {
+    return "cufftdx";
+}
+
 float get_bandwith_scale_factor() {
     return 2.0f;
 }
 
-void make_cufft_handle(cufftHandle* plan, long long data_size, int fft_size, cudaStream_t stream) {
+template<int FFTSize>
+void make_cufft_handle(cufftHandle* plan, long long data_size, cudaStream_t stream) {
     
 }
 
@@ -38,13 +43,25 @@ __global__ void fft_kernel(cufftComplex* data, typename FFT::workspace_type work
     store_nonstrided<FFT>(thread_data, data, local_fft_id);
 }
 
+template<int FFTSize, int FFTsInBlock>
 void exec_cufft_batch(cufftHandle plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems, cudaStream_t stream) {
     using namespace cufftdx;
+    
+    // 1. Create the base descriptor object
+    auto base_desc = Block() + Size<FFTSize>() + Type<fft_type::c2c>() +
+                     Direction<fft_direction::forward>() +
+                     Precision<float>() +
+                     FFTsPerBlock<FFTsInBlock>() + SM<ARCH>();
 
-    using FFT = decltype(Block() + Size<FFT_SIZE>() + Type<fft_type::c2c>() +
-                    Direction<fft_direction::forward>() +
-                    Precision<float>() +
-                    FFTsPerBlock<FFTS_PER_BLOCK>() + SM<ARCH>());
+    // 2. Inspect the default Elements Per Thread (EPT)
+    using BaseFFT = decltype(base_desc);
+    constexpr int default_ept = BaseFFT::elements_per_thread;
+
+    // 3. Determine target EPT (Override to 4 if default < 4)
+    constexpr int target_ept = (FFTSize < 64) ? 4 : default_ept;
+
+    // 4. Define the Final FFT type with the explicit EPT
+    using FFT = decltype(base_desc + ElementsPerThread<target_ept>());
 
     cudaError_t error_code = cudaSuccess;
     auto        workspace  = make_workspace<FFT>(error_code, stream);
@@ -55,7 +72,7 @@ void exec_cufft_batch(cufftHandle plan, cufftComplex* d_data, cufftComplex* d_ke
         fft_kernel<FFT>,
         cudaFuncAttributeMaxDynamicSharedMemorySize, FFT::shared_memory_size));
 
-    fft_kernel<FFT><<<total_elems / (FFT_SIZE * FFTS_PER_BLOCK), FFT::block_dim, FFT::shared_memory_size, stream>>>(
+    fft_kernel<FFT><<<total_elems / (FFTSize * FFTsInBlock), FFT::block_dim, FFT::shared_memory_size, stream>>>(
         d_data, workspace
     );
 
