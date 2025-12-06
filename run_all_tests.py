@@ -114,17 +114,94 @@ else:
 
     ARCH=int(result[0].strip())
 
+def cufft_test(test_name: str):
+    if platform.system() == "Darwin":
+        print(f"Skipping {test_name} cuFFT test on macOS")
+        return
+
+    if not os.path.isfile(f"tests/{test_name}/cufft_test.cu"):
+        print(f"Skipping {test_name} cuFFT test - cufft_test.cu not found")
+        return
+    
+    print(f"Compiling {test_name} cuFFT test...")
+    run_process([nvcc_dir,
+                 "-O3",
+                 "-std=c++17", 
+                 "../cufft_test.cu",
+                 "-gencode", f"arch=compute_{ARCH},code=sm_{ARCH}",
+                 "-lcufft",
+                 "-lculibos",
+                 "-o",
+                 "cufft_test.exec"],
+                 cwd=Path(f"tests/{test_name}/test_results").resolve())
+    print(f"Running {test_name} cuFFT test...")
+    run_process([f"./cufft_test.exec",
+                    str(DATA_SIZE),
+                    str(ITER_COUNT),
+                    str(BATCH_SIZE),
+                    str(REPEATS)],
+                    cwd=Path(f"tests/{test_name}/test_results").resolve())
+    
+    os.remove(f"tests/{test_name}/test_results/cufft_test.exec")
+
+def cufftdx_test(test_name: str):
+    if platform.system() == "Darwin":
+        print(f"Skipping {test_name} cuFFTdx test on macOS")
+        return
+
+    if not os.path.isfile(f"tests/{test_name}/cufftdx_test.cu"):
+        print(f"Skipping {test_name} cuFFTdx test - cufft_test.cu not found")
+        return
+    
+    print(f"Compiling {test_name} cuFFTdx test...")
+    run_process([nvcc_dir,
+                 "../cufftdx_test.cu",
+                 "-std=c++17", "-O3",
+                 "-I ../../../dependencies/cutlass/include",
+                 "-I ../../../dependencies/nvidia-mathdx-25.06.1/nvidia/mathdx/25.06/include",
+                 "-DFFTS_PER_BLOCK=4",
+                 f"-DARCH={ARCH}0",
+                 "-gencode", f"arch=compute_{ARCH},code=sm_{ARCH}",
+                 "-lcufft", "-lculibos",
+                 "-o",  "cufftdx_test.exec"],
+                 cwd=Path(f"tests/{test_name}/test_results").resolve())
+    print(f"Running {test_name} cuFFTdx test...")
+    run_process([f"./cufftdx_test.exec",
+                    str(DATA_SIZE),
+                    str(ITER_COUNT),
+                    str(BATCH_SIZE),
+                    str(REPEATS)],
+                    cwd=Path(f"tests/{test_name}/test_results").resolve())
+    
+    os.remove(f"tests/{test_name}/test_results/cufftdx_test.exec")
+
 def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
     print(f"Running {test_name} test...")
     
-    run_process(['bash', '../../run_test.sh',
+    if not os.path.isdir(f"tests/{test_name}/test_results"):
+        os.mkdir(f"tests/{test_name}/test_results")
+
+    cufft_test(test_name)
+    cufftdx_test(test_name)
+
+    print(f"Running VkDispatch {test_name} test...")
+    run_process(['python3', '../vkdispatch_test.py',
              str(DATA_SIZE),
              str(ITER_COUNT),
              str(BATCH_SIZE),
-             str(REPEATS),
-             str(ARCH),
-             "true"],
-            cwd=Path(f"tests/{test_name}").resolve())
+             str(REPEATS)],
+            cwd=Path(f"tests/{test_name}/test_results").resolve())
+    
+    if os.path.isfile(f"tests/{test_name}/vkfft_test.py"):
+        print(f"Running VKFFT {test_name} test...")
+        run_process(['python3', '../vkfft_test.py',
+                 str(DATA_SIZE),
+                 str(ITER_COUNT),
+                 str(BATCH_SIZE),
+                 str(REPEATS)],
+                cwd=Path(f"tests/{test_name}/test_results").resolve())
+    else:
+        print(f"Skipping {test_name} VKFFT test - vkfft_test.py not found")
 
     make_graph.make_graph(test_name, title, xlabel, ylabel)
 
