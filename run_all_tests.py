@@ -205,9 +205,16 @@ def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
 
     make_graph.make_graph(test_name, title, xlabel, ylabel)
 
+# run_test(
+#     test_name="fft_nonstrided",
+#     title="Nonstrided FFT Performance",
+#     xlabel="FFT Size",
+#     ylabel="GB/s (higher is better)"
+# )
+
 run_test(
-    test_name="fft_nonstrided",
-    title="Nonstrided FFT Performance",
+    test_name="fft_strided",
+    title="Strided FFT Performance",
     xlabel="FFT Size",
     ylabel="GB/s (higher is better)"
 )

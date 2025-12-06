@@ -1,7 +1,7 @@
 #include <cuda_runtime_api.h>
 #include <cufftdx.hpp>
 #include "../common/common.cuh"
-#include "../common/nonstrided_fft.cuh"
+#include "../common/strided_fft.cuh"
 #include <cufft.h>
 
 const char* get_test_name() {
@@ -19,5 +19,5 @@ void make_cufft_handle(cufftHandle* plan, long long data_size, cudaStream_t stre
 
 template<int FFTSize, int FFTsInBlock>
 void exec_cufft_batch(cufftHandle plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems, cudaStream_t stream) {
-    nonstrided_fft<FFTSize, FFTsInBlock, false>(plan, d_data, total_elems / (FFTSize * FFTsInBlock), stream);
+    strided_fft<FFTSize, FFTsInBlock, false>(plan, d_data, total_elems / (FFTSize * FFTSize), FFTSize / FFTsInBlock, stream);
 }
