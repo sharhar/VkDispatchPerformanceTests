@@ -27,11 +27,11 @@ const char* get_test_name();
 
 float get_bandwith_scale_factor();
 
-template<int FFTSize>
-void make_cufft_handle(cufftHandle* plan, long long data_size, int fft_size, cudaStream_t stream);
+template<int FFTSize, int FFTsInBlock>
+void* init_test(long long data_size, cudaStream_t stream);
 
 template<int FFTSize, int FFTsInBlock>
-void exec_cufft_batch(cufftHandle plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems, cudaStream_t stream);
+void run_test(void* plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems, cudaStream_t stream);
 
 __global__ void fill_randomish(cufftComplex* a, long long n){
     long long i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -111,12 +111,11 @@ static double run_cufft_case(const Config& cfg) {
     checkCuda(cudaStreamCreate(&stream), "cudaStreamCreate");
 
     // --- plan bound to the stream ---
-    cufftHandle plan;
-    make_cufft_handle<FFTSize>(&plan, cfg.data_size, stream);
+    void* plan = init_test<FFTSize, FFTsInBlock>(cfg.data_size, stream);
 
     // --- warmup on the stream (without graph) ---
     for (int i = 0; i < cfg.warmup; ++i)
-        exec_cufft_batch<FFTSize, FFTsInBlock>(plan, d_data, d_kernel, cfg.data_size, stream);
+        run_test<FFTSize, FFTsInBlock>(plan, d_data, d_kernel, cfg.data_size, stream);
     
     checkCuda(cudaStreamSynchronize(stream), "warmup sync");
 
@@ -129,7 +128,7 @@ static double run_cufft_case(const Config& cfg) {
 
     // Capture iter_batch FFT operations into the graph
     for (int b = 0; b < cfg.iter_batch; ++b) {
-        exec_cufft_batch<FFTSize, FFTsInBlock>(plan, d_data, d_kernel, cfg.data_size, stream);
+        run_test<FFTSize, FFTsInBlock>(plan, d_data, d_kernel, cfg.data_size, stream);
     }
 
     // End capture and obtain the graph
@@ -172,7 +171,7 @@ static double run_cufft_case(const Config& cfg) {
     // Cleanup
     cudaGraphExecDestroy(graphExec);
     cudaGraphDestroy(graph);
-    cufftDestroy(plan);
+    //cufftDestroy(plan);
     cudaStreamDestroy(stream);
     cudaFree(d_data);
     cudaFree(d_kernel);
@@ -239,7 +238,7 @@ int main(int argc, char** argv) {
     do_fft_size_run<32, 64>(out, cfg, test_name);
     do_fft_size_run<64, 32>(out, cfg, test_name);
     do_fft_size_run<128, 32>(out, cfg, test_name);
-    do_fft_size_run<256, 32>(out, cfg, test_name);
+    do_fft_size_run<256, 16>(out, cfg, test_name);
     do_fft_size_run<512, 16>(out, cfg, test_name);
     do_fft_size_run<1024, 8>(out, cfg, test_name);
     do_fft_size_run<2048, 4>(out, cfg, test_name);
