@@ -12,12 +12,14 @@ float get_bandwith_scale_factor() {
     return 2.0f;
 }
 
-template<int FFTSize>
-void make_cufft_handle(cufftHandle* plan, long long data_size, cudaStream_t stream) {
-    
+template<int FFTSize, int FFTsInBlock>
+void* init_test(long long data_size, cudaStream_t stream) {
+    auto config = new NonStridedFFTConfig<FFTSize, FFTsInBlock, false>();
+    config->init(stream);
+    return static_cast<void*>(config);
 }
 
 template<int FFTSize, int FFTsInBlock>
-void exec_cufft_batch(cufftHandle plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems, cudaStream_t stream) {
-    nonstrided_fft<FFTSize, FFTsInBlock, false>(plan, d_data, total_elems / (FFTSize * FFTsInBlock), stream);
+void run_test(void* plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems, cudaStream_t stream){
+    static_cast<NonStridedFFTConfig<FFTSize, FFTsInBlock, false>*>(plan)->execute(d_data, total_elems, stream);
 }

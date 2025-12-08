@@ -38,34 +38,51 @@ __global__ void nonstrided_fft_kernel(cufftComplex* data, typename FFT::workspac
 }
 
 template<int FFTSize, int FFTsInBlock, bool inverse>
-void nonstrided_fft(cufftHandle plan, cufftComplex* d_data, long long fft_count, cudaStream_t stream) {
-    using namespace cufftdx;
+struct NonStridedFFTConfig {
+private:
+    static constexpr auto make_desc() {
+        using namespace cufftdx;
 
-    constexpr fft_direction dir = inverse ? fft_direction::inverse : fft_direction::forward;
+        constexpr fft_direction dir = inverse ? fft_direction::inverse : fft_direction::forward;
+        auto base_desc = Block() + Size<FFTSize>() + Type<fft_type::c2c>() +
+               Direction<dir>() +
+               Precision<float>() +
+               FFTsPerBlock<FFTsInBlock>() + SM<ARCH>();
+
+        using BaseFFT = decltype(base_desc);
+        constexpr int default_ept = BaseFFT::elements_per_thread;
+
+        constexpr int target_ept = (FFTSize < 64) ? 4 : default_ept;
+
+        return base_desc + ElementsPerThread<target_ept>();
+    }
+public:
+    using FFT = decltype(make_desc());
+    typename FFT::workspace_type workspace;
+    unsigned int shared_mem_size;
+    dim3 block_dim;
+    unsigned int ffts_per_block;
     
-    auto base_desc = Block() + Size<FFTSize>() + Type<fft_type::c2c>() +
-                     Direction<dir>() +
-                     Precision<float>() +
-                     FFTsPerBlock<FFTsInBlock>() + SM<ARCH>();
+    void init(cudaStream_t stream) {
+        cudaError_t err;
+        workspace = cufftdx::make_workspace<FFT>(err, stream);
 
-    using BaseFFT = decltype(base_desc);
-    constexpr int default_ept = BaseFFT::elements_per_thread;
+        shared_mem_size = FFT::shared_memory_size;
+        ffts_per_block = FFT::ffts_per_block;
+        block_dim = FFT::block_dim;
 
-    constexpr int target_ept = (FFTSize < 64) ? 4 : default_ept;
+        CUDA_CHECK_AND_EXIT(cudaFuncSetAttribute(
+            nonstrided_fft_kernel<FFT>,
+            cudaFuncAttributeMaxDynamicSharedMemorySize, shared_mem_size));
+    }
 
-    using FFT = decltype(base_desc + ElementsPerThread<target_ept>());
+    void execute(cufftComplex* d_data, long long total_elems, cudaStream_t stream) {
+        long long fft_count = total_elems / (FFTSize * FFTsInBlock);
+        
+        nonstrided_fft_kernel<FFT><<<fft_count, block_dim, shared_mem_size, stream>>>(
+            d_data, workspace
+        );
 
-    cudaError_t error_code = cudaSuccess;
-    auto        workspace  = make_workspace<FFT>(error_code, stream);
-    CUDA_CHECK_AND_EXIT(error_code);
-
-    CUDA_CHECK_AND_EXIT(cudaFuncSetAttribute(
-        nonstrided_fft_kernel<FFT>,
-        cudaFuncAttributeMaxDynamicSharedMemorySize, FFT::shared_memory_size));
-
-    nonstrided_fft_kernel<FFT><<<fft_count, FFT::block_dim, FFT::shared_memory_size, stream>>>(
-        d_data, workspace
-    );
-
-    CUDA_CHECK_AND_EXIT(cudaPeekAtLastError());
-}
+        CUDA_CHECK_AND_EXIT(cudaPeekAtLastError());
+    }
+};
