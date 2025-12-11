@@ -1,12 +1,17 @@
 #include "../common/common.cuh"
 
+const char* get_test_name() {
+    return "cufft";
+}
+
 float get_bandwith_scale_factor() {
     return 11.0f;
 }
 
-void make_cufft_handle(cufftHandle* plan, long long data_size, int fft_size, cudaStream_t stream) {
-    const long long dim2 = fft_size;
-    const long long dim1 = fft_size;
+template<int FFTSize, int FFTsInBlock>
+void* init_test(long long data_size, cudaStream_t stream) {
+    const long long dim2 = FFTSize;
+    const long long dim1 = FFTSize;
     const long long dim0 = data_size / (dim1 * dim2);
 
     int n[2] = { int(dim1), int(dim2) };
@@ -17,12 +22,16 @@ void make_cufft_handle(cufftHandle* plan, long long data_size, int fft_size, cud
     int idist      = int(dim1)* int(dim2);
     int odist      = int(dim1)* int(dim2);
 
+    cufftHandle* plan = new cufftHandle();
+
     checkCuFFT(cufftPlanMany(plan, 2, n,
                                   inembed,  istride, idist,
                                   onembed,  ostride, odist,
                                   CUFFT_C2C, int(dim0)), "plan2d");
 
     checkCuFFT(cufftSetStream(*plan, stream), "cufftSetStream");
+
+    return plan;
 }
 
 __global__ void convolve_arrays(cufftComplex* data, cufftComplex* kernel, long long total_elems) {
@@ -38,8 +47,9 @@ __global__ void convolve_arrays(cufftComplex* data, cufftComplex* kernel, long l
     }
 }
 
-void exec_cufft_batch(cufftHandle plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems, cudaStream_t stream) {
-    checkCuFFT(cufftExecC2C(plan, d_data, d_data, CUFFT_FORWARD), "warmup");
+template<int FFTSize, int FFTsInBlock>
+void run_test(void* plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems, cudaStream_t stream){
+    checkCuFFT(cufftExecC2C(*static_cast<cufftHandle*>(plan), d_data, d_data, CUFFT_FORWARD), "exec");
     convolve_arrays<<<(total_elems+255)/256,256,0,stream>>>(d_data, d_kernel, total_elems);
-    checkCuFFT(cufftExecC2C(plan, d_data, d_data, CUFFT_INVERSE), "warmup");
+    checkCuFFT(cufftExecC2C(*static_cast<cufftHandle*>(plan), d_data, d_data, CUFFT_INVERSE), "exec");
 }

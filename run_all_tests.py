@@ -15,25 +15,20 @@ ITER_COUNT=200
 BATCH_SIZE=20
 REPEATS=3
 
-# Track child processes
 child_processes = []
 
 def cleanup_children(signum=None, frame=None):
-    """Terminate all child processes"""
     for proc in child_processes:
         try:
-            if proc.poll() is None:  # Process still running
-                proc.kill()  # Force kill if doesn't terminate
+            if proc.poll() is None:
+                proc.kill()
         except:
             pass
     child_processes.clear()
     if signum is not None:
         sys.exit(1)
 
-# Register cleanup on exit
 atexit.register(cleanup_children)
-
-# Register signal handlers
 signal.signal(signal.SIGINT, cleanup_children)
 signal.signal(signal.SIGTERM, cleanup_children)
 
@@ -62,7 +57,11 @@ def run_process(command, capture_stdout=False, cwd=None):
 
     return return_val
 
-if not os.path.isdir('dependencies'):
+def fetch_dependencies():
+    if os.path.isdir('dependencies'):
+        print("Dependencies already fetched")
+        return
+
     os.mkdir('dependencies')
     os.chdir('dependencies')
     run_process([
@@ -93,9 +92,15 @@ if not os.path.isdir('dependencies'):
     os.chdir('..')
     os.chdir('..')
 
-if platform.system() == "Darwin":
-    ARCH=0
-else:
+__cuda_info = None
+cuda_enabled = sys.argv.count('--cuda') > 0
+
+def get_cuda_info():
+    global __cuda_info
+
+    if __cuda_info is not None:
+        return __cuda_info
+
     cuda_home_dir = os.environ.get('CUDA_HOME', None)
 
     nvcc_dir = "nvcc"
@@ -112,9 +117,11 @@ else:
         capture_stdout=True
     )
 
-    ARCH=int(result[0].strip())
+    __cuda_info = (nvcc_dir, int(result[0].strip()))
 
-def cufft_test(test_name: str):
+    return __cuda_info
+
+def cufft_test(test_name: str, nvcc_dir: str, cuda_arch: int):
     if platform.system() == "Darwin":
         print(f"Skipping {test_name} cuFFT test on macOS")
         return
@@ -128,7 +135,7 @@ def cufft_test(test_name: str):
                  "-O3",
                  "-std=c++17", 
                  "../cufft_test.cu",
-                 "-gencode", f"arch=compute_{ARCH},code=sm_{ARCH}",
+                 "-gencode", f"arch=compute_{cuda_arch},code=sm_{cuda_arch}",
                  "-lcufft",
                  "-lculibos",
                  "-o",
@@ -144,7 +151,7 @@ def cufft_test(test_name: str):
     
     os.remove(f"tests/{test_name}/test_results/cufft_test.exec")
 
-def cufftdx_test(test_name: str):
+def cufftdx_test(test_name: str, nvcc_dir: str, cuda_arch: int):
     if platform.system() == "Darwin":
         print(f"Skipping {test_name} cuFFTdx test on macOS")
         return
@@ -160,8 +167,8 @@ def cufftdx_test(test_name: str):
                  "-I ../../../dependencies/cutlass/include",
                  "-I ../../../dependencies/nvidia-mathdx-25.06.1/nvidia/mathdx/25.06/include",
                  "-DFFTS_PER_BLOCK=4",
-                 f"-DARCH={ARCH}0",
-                 "-gencode", f"arch=compute_{ARCH},code=sm_{ARCH}",
+                 f"-DARCH={cuda_arch}0",
+                 "-gencode", f"arch=compute_{cuda_arch},code=sm_{cuda_arch}",
                  "-lcufft", "-lculibos",
                  "-o",  "cufftdx_test.exec"],
                  cwd=Path(f"tests/{test_name}/test_results").resolve())
@@ -181,8 +188,10 @@ def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
     if not os.path.isdir(f"tests/{test_name}/test_results"):
         os.mkdir(f"tests/{test_name}/test_results")
 
-    cufft_test(test_name)
-    cufftdx_test(test_name)
+    if cuda_enabled:
+        nvcc_dir, cuda_arch = get_cuda_info()
+        #cufft_test(test_name, nvcc_dir, cuda_arch)
+        cufftdx_test(test_name, nvcc_dir, cuda_arch)
 
     print(f"Running VkDispatch {test_name} test...")
     run_process(['python3', '../vkdispatch_test.py',
@@ -205,68 +214,57 @@ def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
 
     make_graph.make_graph(test_name, title, xlabel, ylabel)
 
-run_test(
-    test_name="fft_nonstrided",
-    title="Nonstrided FFT Performance",
-    xlabel="FFT Size",
-    ylabel="GB/s (higher is better)"
-)
+if __name__ == "__main__":
+    fetch_dependencies()
 
-run_test(
-    test_name="fft_strided",
-    title="Strided FFT Performance",
-    xlabel="FFT Size",
-    ylabel="GB/s (higher is better)"
-)
+    # run_test(
+    #     test_name="fft_nonstrided",
+    #     title="Nonstrided FFT Performance",
+    #     xlabel="FFT Size",
+    #     ylabel="GB/s (higher is better)"
+    # )
 
-exit()
+    # run_test(
+    #     test_name="fft_strided",
+    #     title="Strided FFT Performance",
+    #     xlabel="FFT Size",
+    #     ylabel="GB/s (higher is better)"
+    # )
 
-# run_test(
-#     test_name="fft_nonstrided",
-#     title="Nonstrided FFT Performance",
-#     xlabel="FFT Size",
-#     ylabel="GB/s (higher is better)"
-# )
+    # run_test(
+    #     test_name="fft_2d",
+    #     title="2D FFT Performance",
+    #     xlabel="FFT Size",
+    #     ylabel="GB/s (higher is better)"
+    # )
 
-# run_test(
-#     test_name="fft_strided",
-#     title="Strided FFT Performance",
-#     xlabel="FFT Size",
-#     ylabel="GB/s (higher is better)"
-# )
+    # if cuda_enabled:
+    #     run_test(
+    #         test_name="conv_scaled_nvidia",
+    #         title="NVidia Scaled Convolution Performance",
+    #         xlabel="Convolution Size (FFT size)",
+    #         ylabel="ms (lower is better)"
+    #     )
 
-# run_test(
-#     test_name="fft_2d",
-#     title="2D FFT Performance",
-#     xlabel="FFT Size",
-#     ylabel="GB/s (higher is better)"
-# )
+    # run_test(
+    #     test_name="conv_scaled_control",
+    #     title="Control Scaled Convolution Performance",
+    #     xlabel="Convolution Size (FFT size)", 
+    #     ylabel="GB/s (higher is better)"
+    # )
 
-if platform.system() != "Darwin":
     run_test(
-        test_name="conv_scaled_nvidia",
-        title="NVidia Scaled Convolution Performance",
-        xlabel="Convolution Size (FFT size)",
-        ylabel="ms (lower is better)"
+        test_name="conv_2d",
+        title="2D Convolution Performance",
+        xlabel="Convolution Size (FFT size)", 
+        ylabel="GB/s (higher is better)"
     )
 
-run_test(
-    test_name="conv_scaled_control",
-    title="Control Scaled Convolution Performance",
-    xlabel="Convolution Size (FFT size)", 
-    ylabel="GB/s (higher is better)"
-)
+    exit()
 
-run_test(
-    test_name="conv_2d",
-    title="2D Convolution Performance",
-    xlabel="Convolution Size (FFT size)", 
-    ylabel="GB/s (higher is better)"
-)
-
-run_test(
-    test_name="conv_2d_padded",
-    title="2D Padded Convolution Performance",
-    xlabel="Convolution Size (FFT size)", 
-    ylabel="GB/s (higher is better)"
-)
+    run_test(
+        test_name="conv_2d_padded",
+        title="2D Padded Convolution Performance",
+        xlabel="Convolution Size (FFT size)", 
+        ylabel="GB/s (higher is better)"
+    )

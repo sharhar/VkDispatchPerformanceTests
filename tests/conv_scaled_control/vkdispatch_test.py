@@ -11,7 +11,7 @@ import numpy as np
 
 @vd.map
 def kernel_mapping(scale_factor: vc.Var[vc.f32]):
-    read_op = vd.fft.mapped_read_op()
+    read_op = vd.fft.read_op()
     read_op.register[:] = read_op.register * scale_factor
 
 def test_function(config: Config,
