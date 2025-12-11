@@ -36,6 +36,55 @@ static inline __device__ void store_nonstrided(float2* data, float2* thread_data
     }
 }
 
+template<class FFT, int padding_ratio>
+static inline __device__
+void load_nonstrided_padded(const float2* input, float2* thread_data) {
+    const unsigned int local_fft_id = threadIdx.y;
+    unsigned int active_layers = FFT::input_length / padding_ratio;
+    unsigned int extra_layers = FFT::input_length - active_layers;
+
+    unsigned int global_fft_id = blockIdx.x * (FFT::ffts_per_block / FFT::implicit_type_batching) + local_fft_id;
+    global_fft_id = global_fft_id + extra_layers * (global_fft_id / active_layers); // skip extra layers
+    const unsigned int offset = FFT::input_length * global_fft_id;
+    
+    const unsigned int stride = FFT::stride;
+    unsigned int       index  = offset + threadIdx.x;
+    for (unsigned int i = 0; i < FFT::input_ept; ++i) {
+        unsigned int fft_index = i * stride + threadIdx.x;
+
+        if (fft_index < FFT::input_length / padding_ratio) {
+            thread_data[i] = input[index];
+            index += stride;
+        } else if (fft_index < FFT::input_length) {
+            thread_data[i] = float2{0.0f, 0.0f};
+            index += stride;
+        }
+    }
+}
+
+template<class FFT, int padding_ratio>
+static inline __device__
+void store_nonstrided_padded(const float2* thread_data, float2* output) {
+    const unsigned int local_fft_id = threadIdx.y;
+
+    unsigned int active_layers = FFT::output_length / padding_ratio;
+    unsigned int extra_layers = FFT::output_length - active_layers;
+    
+    unsigned int global_fft_id = blockIdx.x * (FFT::ffts_per_block / FFT::implicit_type_batching) + local_fft_id;
+    global_fft_id = global_fft_id + extra_layers * (global_fft_id / active_layers); // skip extra layers
+
+    const unsigned int offset = FFT::output_length * global_fft_id;
+    const unsigned int stride = FFT::stride;
+    unsigned int       index  = offset + threadIdx.x;
+
+    for (int i = 0; i < FFT::output_ept; ++i) {
+        if ((i * stride + threadIdx.x) < FFT::output_length) {
+            output[index] = thread_data[i];
+            index += stride;
+        }
+    }
+}
+
 template <class FFT>
 __launch_bounds__(FFT::max_threads_per_block)
 __global__ void nonstrided_fft_kernel(cufftComplex* data, typename FFT::workspace_type workspace) {
@@ -45,6 +94,17 @@ __global__ void nonstrided_fft_kernel(cufftComplex* data, typename FFT::workspac
     load_nonstrided<FFT>(data, thread_data);
     FFT().execute(thread_data, shared_mem, workspace);
     store_nonstrided<FFT>(data, thread_data);
+}
+
+template <class FFT>
+__launch_bounds__(FFT::max_threads_per_block)
+__global__ void nonstrided_padded_fft_kernel(cufftComplex* data, typename FFT::workspace_type workspace) {
+    cufftComplex thread_data[FFT::storage_size];
+    extern __shared__ __align__(alignof(float4)) cufftComplex shared_mem[];
+
+    load_nonstrided_padded<FFT, 8>(data, thread_data);
+    FFT().execute(thread_data, shared_mem, workspace);
+    store_nonstrided_padded<FFT, 8>(data, thread_data);
 }
 
 static inline __device__ void scaling_kernel(cufftComplex* data, float scale_factor, long long total_elems) {
@@ -124,6 +184,10 @@ public:
             cudaFuncAttributeMaxDynamicSharedMemorySize, shared_mem_size));
 
         CUDA_CHECK_AND_EXIT(cudaFuncSetAttribute(
+            nonstrided_padded_fft_kernel<FFT>,
+            cudaFuncAttributeMaxDynamicSharedMemorySize, shared_mem_size));
+
+        CUDA_CHECK_AND_EXIT(cudaFuncSetAttribute(
             nonstrided_scaled_convolution_kernel<FFT, IFFT>,
             cudaFuncAttributeMaxDynamicSharedMemorySize, shared_mem_size));
     }
@@ -142,6 +206,16 @@ public:
         long long fft_count = total_elems / (FFTSize * FFTsInBlock);
         
         nonstrided_fft_kernel<IFFT><<<fft_count, block_dim, shared_mem_size, stream>>>(
+            d_data, workspace
+        );
+
+        CUDA_CHECK_AND_EXIT(cudaPeekAtLastError());
+    }
+
+    void execute_padded_fft(cufftComplex* d_data, long long total_elems, cudaStream_t stream) {
+        long long fft_count = total_elems / (FFTSize * FFTsInBlock * 8);
+        
+        nonstrided_padded_fft_kernel<FFT><<<fft_count, block_dim, shared_mem_size, stream>>>(
             d_data, workspace
         );
 

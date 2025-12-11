@@ -31,7 +31,7 @@ def padded_cross_correlation(
 
     @vd.map 
     def input_mapping(input_buffer: vc.Buffer[vc.c64]):
-        read_op = vd.fft.mapped_read_op()
+        read_op = vd.fft.read_op()
 
         read_op.read_from_buffer(
             input_buffer,
@@ -40,7 +40,7 @@ def padded_cross_correlation(
 
     @vd.map
     def output_mapping(output_buffer: vc.Buffer[vc.c64]):
-        write_op = vd.fft.mapped_write_op()
+        write_op = vd.fft.write_op()
 
         write_op.write_to_buffer(
             output_buffer,

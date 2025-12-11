@@ -50,6 +50,51 @@ static inline __device__ void load_strided(const float2* input,
     }
 }
 
+template<class FFT, int padding_ratio>
+static inline __device__ void load_strided_padded(const float2* input,
+                                            float2*          thread_data,
+                                            float2*       shared_memory,
+                                            unsigned int stride_len) {
+    const unsigned int tid          = threadIdx.x + blockDim.x * threadIdx.y;
+    const unsigned int tidx         = tid / blockDim.y;
+    const unsigned int tidy         = tid % blockDim.y;
+    
+    constexpr unsigned int signal_len = cufftdx::size_of<FFT>::value / padding_ratio;
+    const unsigned int batch_offset = tidy + blockIdx.y * FFT::ffts_per_block + blockIdx.x * stride_len * cufftdx::size_of<FFT>::value;
+
+    const unsigned int stride       = stride_len * FFT::stride;
+    unsigned int       index        = batch_offset + (tidx * stride_len);
+    unsigned int       smem_index   = tidx + tidy * blockDim.x;
+
+    #pragma unroll
+    for (unsigned int i = 0; i < FFT::elements_per_thread; i++) {
+        unsigned int fft_index = i * FFT::stride + tidx;
+
+        if (fft_index < signal_len) {
+            shared_memory[smem_index] = input[index];
+
+            index += stride;
+            smem_index += (blockDim.x * blockDim.y);
+        }
+    }
+
+    __syncthreads();
+    smem_index = threadIdx.x + threadIdx.y * blockDim.x;
+
+    #pragma unroll
+    for (unsigned int i = 0; i < FFT::elements_per_thread; i++) {
+        unsigned int fft_index = i * FFT::stride + threadIdx.x;
+
+        if (fft_index < signal_len) {
+            thread_data[i] = shared_memory[smem_index];
+            smem_index += (blockDim.x * blockDim.y);
+        } else if (fft_index < cufftdx::size_of<FFT>::value) {
+            thread_data[i] = float2{0.0f, 0.0f};
+            smem_index += (blockDim.x * blockDim.y);
+        }
+    }
+}
+
 template<class FFT, bool smem_transpose>
 static inline __device__ void store_strided(const float2* thread_data,
                                             float2*    shared_memory,
@@ -187,6 +232,24 @@ __global__ void strided_conv_kernel(cufftComplex* data, const cufftComplex* kern
     store_strided<FFT, smem_transpose>(thread_data, shared_mem, data, stride_len);
 }
 
+template <class FFT, class IFFT, bool smem_transpose, bool read_kernel_transposed>
+__launch_bounds__(FFT::max_threads_per_block)
+__global__ void strided_padded_conv_kernel(cufftComplex* data, const cufftComplex* kernel, unsigned int inner_fft_count, typename FFT::workspace_type workspace, typename FFT::workspace_type iworkspace) {
+    cufftComplex thread_data[FFT::storage_size];
+    extern __shared__ __align__(alignof(float4)) cufftComplex shared_mem[];
+    unsigned int stride_len = inner_fft_count * FFT::ffts_per_block;
+
+    load_strided_padded<FFT, 8>(data, thread_data, shared_mem, stride_len);
+    
+    FFT().execute(thread_data, shared_mem, workspace);
+
+    apply_kernel<FFT, smem_transpose, read_kernel_transposed>( (float2*)kernel, (float2*)thread_data, (float2*)shared_mem, inner_fft_count);
+
+    IFFT().execute(thread_data, shared_mem, iworkspace);
+
+    store_strided<FFT, smem_transpose>(thread_data, shared_mem, data, stride_len);
+}
+
 template<int FFTSize, int FFTsInBlock, bool smem_transpose, bool read_kernel_transposed>
 struct StridedFFTConfig {
 
@@ -241,6 +304,10 @@ public:
         CUDA_CHECK_AND_EXIT(cudaFuncSetAttribute(
             strided_conv_kernel<FFT, IFFT, smem_transpose, read_kernel_transposed>,
             cudaFuncAttributeMaxDynamicSharedMemorySize, shared_mem_size));
+
+        CUDA_CHECK_AND_EXIT(cudaFuncSetAttribute(
+            strided_padded_conv_kernel<FFT, IFFT, smem_transpose, read_kernel_transposed>,
+            cudaFuncAttributeMaxDynamicSharedMemorySize, shared_mem_size));
     }
 
     void execute_fft(cufftComplex* d_data, long long total_elems, cudaStream_t stream) {
@@ -263,6 +330,19 @@ public:
         dim3 grid_dims(outer_fft_count, inner_fft_count);
         
         strided_conv_kernel<FFT, IFFT, smem_transpose, read_kernel_transposed><<<grid_dims, block_dim, shared_mem_size, stream>>>(
+            d_data, d_kernel, inner_fft_count, workspace, iworkspace
+        );
+
+        CUDA_CHECK_AND_EXIT(cudaPeekAtLastError());
+    }
+
+    void execute_padded_conv(cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems, cudaStream_t stream) {
+        long long outer_fft_count = total_elems / (FFTSize * FFTSize);
+        long long inner_fft_count = FFTSize / ffts_per_block;
+        
+        dim3 grid_dims(outer_fft_count, inner_fft_count);
+        
+        strided_padded_conv_kernel<FFT, IFFT, smem_transpose, read_kernel_transposed><<<grid_dims, block_dim, shared_mem_size, stream>>>(
             d_data, d_kernel, inner_fft_count, workspace, iworkspace
         );
 

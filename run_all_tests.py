@@ -190,7 +190,7 @@ def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
 
     if cuda_enabled:
         nvcc_dir, cuda_arch = get_cuda_info()
-        #cufft_test(test_name, nvcc_dir, cuda_arch)
+        cufft_test(test_name, nvcc_dir, cuda_arch)
         cufftdx_test(test_name, nvcc_dir, cuda_arch)
 
     print(f"Running VkDispatch {test_name} test...")
@@ -253,14 +253,12 @@ if __name__ == "__main__":
     #     ylabel="GB/s (higher is better)"
     # )
 
-    run_test(
-        test_name="conv_2d",
-        title="2D Convolution Performance",
-        xlabel="Convolution Size (FFT size)", 
-        ylabel="GB/s (higher is better)"
-    )
-
-    exit()
+    # run_test(
+    #     test_name="conv_2d",
+    #     title="2D Convolution Performance",
+    #     xlabel="Convolution Size (FFT size)", 
+    #     ylabel="GB/s (higher is better)"
+    # )
 
     run_test(
         test_name="conv_2d_padded",
