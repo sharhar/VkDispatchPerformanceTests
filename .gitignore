@@ -8,6 +8,8 @@ __pycache__/
 
 *.tex
 
+codebase.txt
+
 *.exec
 *.csv
 *.png
