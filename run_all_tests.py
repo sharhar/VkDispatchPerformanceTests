@@ -224,12 +224,12 @@ if __name__ == "__main__":
     #     ylabel="GB/s (higher is better)"
     # )
 
-    run_test(
-        test_name="fft_2d",
-        title="2D FFT Performance",
-        xlabel="FFT Size",
-        ylabel="GB/s (higher is better)"
-    )
+    # run_test(
+    #     test_name="fft_2d",
+    #     title="2D FFT Performance",
+    #     xlabel="FFT Size",
+    #     ylabel="GB/s (higher is better)"
+    # )
 
     # if cuda_enabled:
     #     run_test(

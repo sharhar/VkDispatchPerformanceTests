@@ -75,6 +75,10 @@ static inline __device__ void load_strided_padded(const float2* input,
 
             index += stride;
             smem_index += (blockDim.x * blockDim.y);
+        } else {
+            // Explicitly pad with zero
+            shared_memory[smem_index] = make_float2(0.0f, 0.0f);
+            smem_index += (blockDim.x * blockDim.y);
         }
     }
 
@@ -232,14 +236,14 @@ __global__ void strided_conv_kernel(cufftComplex* data, const cufftComplex* kern
     store_strided<FFT, smem_transpose>(thread_data, shared_mem, data, stride_len);
 }
 
-template <class FFT, class IFFT, bool smem_transpose, bool read_kernel_transposed>
+template <class FFT, class IFFT, bool smem_transpose, bool read_kernel_transposed, int padding_ratio>
 __launch_bounds__(FFT::max_threads_per_block)
 __global__ void strided_padded_conv_kernel(cufftComplex* data, const cufftComplex* kernel, unsigned int inner_fft_count, typename FFT::workspace_type workspace, typename FFT::workspace_type iworkspace) {
     cufftComplex thread_data[FFT::storage_size];
     extern __shared__ __align__(alignof(float4)) cufftComplex shared_mem[];
     unsigned int stride_len = inner_fft_count * FFT::ffts_per_block;
 
-    load_strided_padded<FFT, 8>(data, thread_data, shared_mem, stride_len);
+    load_strided_padded<FFT, padding_ratio>(data, thread_data, shared_mem, stride_len);
     
     FFT().execute(thread_data, shared_mem, workspace);
 
@@ -250,7 +254,7 @@ __global__ void strided_padded_conv_kernel(cufftComplex* data, const cufftComple
     store_strided<FFT, smem_transpose>(thread_data, shared_mem, data, stride_len);
 }
 
-template<int FFTSize, int FFTsInBlock, bool smem_transpose, bool read_kernel_transposed>
+template<int FFTSize, int FFTsInBlock, bool smem_transpose, bool read_kernel_transposed, int padding_ratio>
 struct StridedFFTConfig {
 
 private:
@@ -306,7 +310,7 @@ public:
             cudaFuncAttributeMaxDynamicSharedMemorySize, shared_mem_size));
 
         CUDA_CHECK_AND_EXIT(cudaFuncSetAttribute(
-            strided_padded_conv_kernel<FFT, IFFT, smem_transpose, read_kernel_transposed>,
+            strided_padded_conv_kernel<FFT, IFFT, smem_transpose, read_kernel_transposed, padding_ratio>,
             cudaFuncAttributeMaxDynamicSharedMemorySize, shared_mem_size));
     }
 
@@ -342,7 +346,7 @@ public:
         
         dim3 grid_dims(outer_fft_count, inner_fft_count);
         
-        strided_padded_conv_kernel<FFT, IFFT, smem_transpose, read_kernel_transposed><<<grid_dims, block_dim, shared_mem_size, stream>>>(
+        strided_padded_conv_kernel<FFT, IFFT, smem_transpose, read_kernel_transposed, padding_ratio><<<grid_dims, block_dim, shared_mem_size, stream>>>(
             d_data, d_kernel, inner_fft_count, workspace, iworkspace
         );
 

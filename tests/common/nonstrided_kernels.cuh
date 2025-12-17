@@ -43,7 +43,7 @@ void load_nonstrided_padded(const float2* input, float2* thread_data) {
     unsigned int active_layers = FFT::input_length / padding_ratio;
     unsigned int extra_layers = FFT::input_length - active_layers;
 
-    unsigned int global_fft_id = blockIdx.x * (FFT::ffts_per_block / FFT::implicit_type_batching) + local_fft_id;
+    unsigned int global_fft_id = blockIdx.x * FFT::ffts_per_block + local_fft_id;
     global_fft_id = global_fft_id + extra_layers * (global_fft_id / active_layers); // skip extra layers
     const unsigned int offset = FFT::input_length * global_fft_id;
     
@@ -64,13 +64,13 @@ void load_nonstrided_padded(const float2* input, float2* thread_data) {
 
 template<class FFT, int padding_ratio>
 static inline __device__
-void store_nonstrided_padded(const float2* thread_data, float2* output) {
+void store_nonstrided_padded(float2* output, const float2* thread_data) {
     const unsigned int local_fft_id = threadIdx.y;
 
     unsigned int active_layers = FFT::output_length / padding_ratio;
     unsigned int extra_layers = FFT::output_length - active_layers;
     
-    unsigned int global_fft_id = blockIdx.x * (FFT::ffts_per_block / FFT::implicit_type_batching) + local_fft_id;
+    unsigned int global_fft_id = blockIdx.x * FFT::ffts_per_block + local_fft_id;
     global_fft_id = global_fft_id + extra_layers * (global_fft_id / active_layers); // skip extra layers
 
     const unsigned int offset = FFT::output_length * global_fft_id;
@@ -96,15 +96,15 @@ __global__ void nonstrided_fft_kernel(cufftComplex* data, typename FFT::workspac
     store_nonstrided<FFT>(data, thread_data);
 }
 
-template <class FFT>
+template <class FFT, int padding_ratio>
 __launch_bounds__(FFT::max_threads_per_block)
 __global__ void nonstrided_padded_fft_kernel(cufftComplex* data, typename FFT::workspace_type workspace) {
     cufftComplex thread_data[FFT::storage_size];
     extern __shared__ __align__(alignof(float4)) cufftComplex shared_mem[];
 
-    load_nonstrided_padded<FFT, 8>(data, thread_data);
+    load_nonstrided_padded<FFT, padding_ratio>(data, thread_data);
     FFT().execute(thread_data, shared_mem, workspace);
-    store_nonstrided_padded<FFT, 8>(data, thread_data);
+    store_nonstrided_padded<FFT, padding_ratio>(data, thread_data);
 }
 
 static inline __device__ void scaling_kernel(cufftComplex* data, float scale_factor, long long total_elems) {
@@ -134,7 +134,7 @@ __global__ void nonstrided_scaled_convolution_kernel(cufftComplex* data, typenam
     store_nonstrided<FFT>(data, thread_data);
 }
 
-template<int FFTSize, int FFTsInBlock>
+template<int FFTSize, int FFTsInBlock, int padding_ratio>
 struct NonStridedFFTConfig {
 private:
     template<bool inverse>
@@ -184,7 +184,7 @@ public:
             cudaFuncAttributeMaxDynamicSharedMemorySize, shared_mem_size));
 
         CUDA_CHECK_AND_EXIT(cudaFuncSetAttribute(
-            nonstrided_padded_fft_kernel<FFT>,
+            nonstrided_padded_fft_kernel<FFT, padding_ratio>,
             cudaFuncAttributeMaxDynamicSharedMemorySize, shared_mem_size));
 
         CUDA_CHECK_AND_EXIT(cudaFuncSetAttribute(
@@ -213,9 +213,9 @@ public:
     }
 
     void execute_padded_fft(cufftComplex* d_data, long long total_elems, cudaStream_t stream) {
-        long long fft_count = total_elems / (FFTSize * FFTsInBlock * 8);
+        long long fft_count = total_elems / (FFTSize * FFTsInBlock * padding_ratio);
         
-        nonstrided_padded_fft_kernel<FFT><<<fft_count, block_dim, shared_mem_size, stream>>>(
+        nonstrided_padded_fft_kernel<FFT, padding_ratio><<<fft_count, block_dim, shared_mem_size, stream>>>(
             d_data, workspace
         );
 

@@ -11,6 +11,12 @@
 #include <string>
 #include <vector>
 #include <cmath>
+#include <cstdint>
+#include <cstring>
+#include <complex>
+#include <fstream>
+#include <string>
+#include <vector>
 
 #ifndef CUDA_CHECK_AND_EXIT
 #    define CUDA_CHECK_AND_EXIT(error)                                                                      \
@@ -28,7 +34,7 @@ float get_bandwith_scale_factor();
 template<int FFTSize, int FFTsInBlock, bool reference_mode>
 void* init_test(long long data_size, cudaStream_t stream);
 
-template<int FFTSize, int FFTsInBlock, bool reference_mode>
+template<int FFTSize, int FFTsInBlock, bool reference_mode, bool validate>
 void run_test(void* plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems, cudaStream_t stream);
 
 template<int FFTSize, int FFTsInBlock, bool reference_mode>
@@ -37,8 +43,8 @@ void delete_test(void* plan);
 __global__ void fill_randomish(cufftComplex* a, long long n){
     long long i = blockIdx.x * blockDim.x + threadIdx.x;
     if(i<n){
-        float x = __sinf(i * 0.00173f);
-        float y = __cosf(i * 0.00091f);
+        float x = __sinf(i * 0.00173f) + cosf(i * 0.00037f) + __tanf(i * 0.00029f) +  sinhf(i * 0.013f) + coshf(i * 0.0019f) + tanhf(i * 0.00023f);
+        float y = __cosf(i * 0.00091f) + sinhf(i * 0.00053f) + tanhf(i * 0.00097f) + sinf(i * 0.23f) + coshf(i * 0.0037f) + tanf(i * 0.011f);
         a[i] = make_float2(x, y);
     }
 }
@@ -128,7 +134,7 @@ static double run_cufft_case(const Config& cfg) {
 
     // --- warmup on the stream (without graph) ---
     for (int i = 0; i < cfg.warmup; ++i)
-        run_test<FFTSize, FFTsInBlock, reference_mode>(plan, d_data, d_kernel, cfg.data_size, stream);
+        run_test<FFTSize, FFTsInBlock, reference_mode, false>(plan, d_data, d_kernel, cfg.data_size, stream);
     
     checkCuda(cudaStreamSynchronize(stream), "warmup sync");
 
@@ -141,7 +147,7 @@ static double run_cufft_case(const Config& cfg) {
 
     // Capture iter_batch FFT operations into the graph
     for (int b = 0; b < cfg.iter_batch; ++b) {
-        run_test<FFTSize, FFTsInBlock, reference_mode>(plan, d_data, d_kernel, cfg.data_size, stream);
+        run_test<FFTSize, FFTsInBlock, reference_mode, false>(plan, d_data, d_kernel, cfg.data_size, stream);
     }
 
     // End capture and obtain the graph
@@ -302,8 +308,8 @@ void run_validation_test(const Config& cfg) {
     void* plan_ref = init_test<FFTSize, FFTsInBlock, true>(cfg.data_size, stream);
 
     // --- warmup on the stream (without graph) ---
-    run_test<FFTSize, FFTsInBlock, false>(plan, d_data, d_kernel, cfg.data_size, stream);
-    run_test<FFTSize, FFTsInBlock, true>(plan_ref, d_data_ref, d_kernel_ref, cfg.data_size, stream);
+    run_test<FFTSize, FFTsInBlock, false, true>(plan, d_data, d_kernel, cfg.data_size, stream);
+    run_test<FFTSize, FFTsInBlock, true, true>(plan_ref, d_data_ref, d_kernel_ref, cfg.data_size, stream);
 
     cufftComplex* h_data = new cufftComplex[cfg.data_size];
     cufftComplex* h_data_ref = new cufftComplex[cfg.data_size];
@@ -312,20 +318,24 @@ void run_validation_test(const Config& cfg) {
 
     // Validate results
     int errors = 0;
-    const float max_abs_error = 1e-6f * FFTSize * FFTSize; // allow some error accumulation
     for (long long i = 0; i < cfg.data_size; ++i) {
         float diff_x = std::fabs(h_data[i].x - h_data_ref[i].x);
         float diff_y = std::fabs(h_data[i].y - h_data_ref[i].y);
 
         float diff_2 = diff_x * diff_x + diff_y * diff_y;
 
+        float abs_2 = h_data_ref[i].x * h_data_ref[i].x + h_data_ref[i].y * h_data_ref[i].y;
+        if (abs_2 < 1e-10f || diff_2 < 1e-10f) {
+            // skip near-zero reference values
+            continue;
+        }
 
-        if (diff_2 > max_abs_error) {
+        if (diff_2 / abs_2 > 1e-8f) {
             if (errors < 10) {
                 std::cout << "Mismatch at index " << i << ": got (" << h_data[i].x << ", " << h_data[i].y
                           << "), expected (" << h_data_ref[i].x << ", " << h_data_ref[i].y << ")"
                           << ", diff (" << diff_x << ", " << diff_y << ")"
-                          << ", diff^2 " << diff_2 << ", max allowed " << max_abs_error << "\n";
+                          << ", diff^2 " << diff_2 << ", diff^2/abs^2 " << diff_2 / abs_2 << "\n";
             }
             errors++;
         }

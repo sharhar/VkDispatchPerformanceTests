@@ -22,19 +22,19 @@ void* init_test(long long data_size, cudaStream_t stream) {
         return static_cast<void*>(plan);
     }
 
-    auto config = new NonStridedFFTConfig<FFTSize, FFTsInBlock>();
+    auto config = new NonStridedFFTConfig<FFTSize, FFTsInBlock, 1>();
     config->init(stream);
     return static_cast<void*>(config);
 }
 
-template<int FFTSize, int FFTsInBlock, bool reference_mode>
+template<int FFTSize, int FFTsInBlock, bool reference_mode, bool validate>
 void run_test(void* plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems, cudaStream_t stream){
     if constexpr (reference_mode) {
         checkCuFFT(cufftExecC2C(*static_cast<cufftHandle*>(plan), d_data, d_data, CUFFT_FORWARD), "exec");
         return;
     }
     
-    static_cast<NonStridedFFTConfig<FFTSize, FFTsInBlock>*>(plan)->execute_fft(d_data, total_elems, stream);
+    static_cast<NonStridedFFTConfig<FFTSize, FFTsInBlock, 1>*>(plan)->execute_fft(d_data, total_elems, stream);
 }
 
 template<int FFTSize, int FFTsInBlock, bool reference_mode>
@@ -45,5 +45,5 @@ void delete_test(void* plan) {
         return;
     }
 
-    delete static_cast<NonStridedFFTConfig<FFTSize, FFTsInBlock>*>(plan);
+    delete static_cast<NonStridedFFTConfig<FFTSize, FFTsInBlock, 1>*>(plan);
 }

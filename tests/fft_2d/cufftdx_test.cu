@@ -11,8 +11,8 @@ float get_bandwith_scale_factor() {
 
 template<int FFTSize, int FFTsInBlock>
 struct FFT2DConfig {
-    NonStridedFFTConfig<FFTSize, FFTsInBlock> fft_nonstrided;
-    StridedFFTConfig<FFTSize, FFTsInBlock, true, false> fft_strided;
+    NonStridedFFTConfig<FFTSize, FFTsInBlock, 1> fft_nonstrided;
+    StridedFFTConfig<FFTSize, FFTsInBlock, true, false, 1> fft_strided;
 };
 
 template<int FFTSize, int FFTsInBlock, bool reference_mode>
@@ -49,7 +49,7 @@ void* init_test(long long data_size, cudaStream_t stream) {
     return static_cast<void*>(config);
 }
 
-template<int FFTSize, int FFTsInBlock, bool reference_mode>
+template<int FFTSize, int FFTsInBlock, bool reference_mode, bool validate>
 void run_test(void* plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems, cudaStream_t stream){
     if constexpr (reference_mode) {
         checkCuFFT(cufftExecC2C(*static_cast<cufftHandle*>(plan), d_data, d_data, CUFFT_FORWARD), "exec");
