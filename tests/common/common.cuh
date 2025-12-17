@@ -23,15 +23,16 @@
         }
 #endif // CUDA_CHECK_AND_EXIT
 
-const char* get_test_name();
-
 float get_bandwith_scale_factor();
 
-template<int FFTSize, int FFTsInBlock>
+template<int FFTSize, int FFTsInBlock, bool reference_mode>
 void* init_test(long long data_size, cudaStream_t stream);
 
-template<int FFTSize, int FFTsInBlock>
+template<int FFTSize, int FFTsInBlock, bool reference_mode>
 void run_test(void* plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems, cudaStream_t stream);
+
+template<int FFTSize, int FFTsInBlock, bool reference_mode>
+void delete_test(void* plan);
 
 __global__ void fill_randomish(cufftComplex* a, long long n){
     long long i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -61,13 +62,21 @@ struct Config {
     int iter_count;
     int iter_batch;
     int run_count;
+    int performance_cufftdx;
+    int performance_cufft;
+    int validation;
     int warmup = 10;   // match Torch script's warmup
 };
 
 static Config parse_args(int argc, char** argv) {
-    if (argc != 5) {
+    if (argc != 6) {
         std::cerr << "Usage: " << argv[0]
-                  << " <data_size> <iter_count> <iter_batch> <run_count>\n";
+                  << " <data_size> <iter_count> <iter_batch> <run_count> <run_type>\n";
+        std::cerr << "  data_size   : total number of complex elements to process\n";
+        std::cerr << "  iter_count  : total number of iterations to run\n";
+        std::cerr << "  iter_batch  : number of iterations to batch into a single CUDA graph\n";
+        std::cerr << "  run_count   : number of times to repeat the entire test for statistics\n";
+        std::cerr << "  run_type    : 0 = performance cufftdx, 1 = performance cufft, 2 = validation\n";
         std::exit(1);
     }
     Config c;
@@ -75,6 +84,10 @@ static Config parse_args(int argc, char** argv) {
     c.iter_count = std::stoi(argv[2]);
     c.iter_batch = std::stoi(argv[3]);
     c.run_count  = std::stoi(argv[4]);
+    int run_type  = std::stoi(argv[5]);
+    c.performance_cufftdx = run_type == 0 ? 1 : 0;
+    c.performance_cufft  = run_type == 1 ? 1 : 0;
+    c.validation = run_type == 2 ? 1 : 0;
     return c;
 }
 
@@ -83,7 +96,7 @@ static double gb_per_exec(long long total_elems) {
     return bytes / (1024.0 * 1024.0 * 1024.0);
 }
 
-template<int FFTSize, int FFTsInBlock>
+template<int FFTSize, int FFTsInBlock, bool reference_mode>
 static double run_cufft_case(const Config& cfg) {
 
     cufftComplex* d_data = nullptr;
@@ -111,11 +124,11 @@ static double run_cufft_case(const Config& cfg) {
     checkCuda(cudaStreamCreate(&stream), "cudaStreamCreate");
 
     // --- plan bound to the stream ---
-    void* plan = init_test<FFTSize, FFTsInBlock>(cfg.data_size, stream);
+    void* plan = init_test<FFTSize, FFTsInBlock, reference_mode>(cfg.data_size, stream);
 
     // --- warmup on the stream (without graph) ---
     for (int i = 0; i < cfg.warmup; ++i)
-        run_test<FFTSize, FFTsInBlock>(plan, d_data, d_kernel, cfg.data_size, stream);
+        run_test<FFTSize, FFTsInBlock, reference_mode>(plan, d_data, d_kernel, cfg.data_size, stream);
     
     checkCuda(cudaStreamSynchronize(stream), "warmup sync");
 
@@ -128,7 +141,7 @@ static double run_cufft_case(const Config& cfg) {
 
     // Capture iter_batch FFT operations into the graph
     for (int b = 0; b < cfg.iter_batch; ++b) {
-        run_test<FFTSize, FFTsInBlock>(plan, d_data, d_kernel, cfg.data_size, stream);
+        run_test<FFTSize, FFTsInBlock, reference_mode>(plan, d_data, d_kernel, cfg.data_size, stream);
     }
 
     // End capture and obtain the graph
@@ -171,6 +184,8 @@ static double run_cufft_case(const Config& cfg) {
     // Cleanup
     cudaGraphExecDestroy(graphExec);
     cudaGraphDestroy(graph);
+
+    delete_test<FFTSize, FFTsInBlock, reference_mode>(plan);
     //cufftDestroy(plan);
     cudaStreamDestroy(stream);
     cudaFree(d_data);
@@ -179,13 +194,13 @@ static double run_cufft_case(const Config& cfg) {
     return gb_per_second;
 }
 
-template<int FFTSize, int FFTsInBlock>
+template<int FFTSize, int FFTsInBlock, bool reference_mode>
 void do_fft_size_run(std::ofstream& out, const Config& cfg, const std::string& test_name) {
     std::vector<double> rates;
     rates.reserve(cfg.run_count);
 
     for (int r = 0; r < cfg.run_count; ++r) {
-        const double gbps = run_cufft_case<FFTSize, FFTsInBlock>(cfg);
+        const double gbps = run_cufft_case<FFTSize, FFTsInBlock, reference_mode>(cfg);
         std::cout << "FFT Size: " << FFTSize << ", Throughput: " << std::fixed << std::setprecision(4)
                     << gbps << " GB/s\n";
         rates.push_back(gbps);
@@ -211,19 +226,16 @@ void do_fft_size_run(std::ofstream& out, const Config& cfg, const std::string& t
     out << "," << mean << "," << stdev << "\n";
 }
 
-int main(int argc, char** argv) {
-    const Config cfg = parse_args(argc, argv);
-
-    const std::string test_name = get_test_name(); 
-
+template<bool reference_mode>
+void run_performance_tests(const Config& cfg, const std::string& test_name) {
     const std::string output_name = test_name + ".csv";
     std::ofstream out(output_name);
     if (!out) {
         std::cerr << "Failed to open output file: " << output_name << "\n";
-        return 1;
+        return;
     }
 
-    std::cout << "Running cuFFT tests with data size " << cfg.data_size
+    std::cout << "Running " << test_name << " tests with data size " << cfg.data_size
               << ", iter_count " << cfg.iter_count
               << ", iter_batch " << cfg.iter_batch
               << ", run_count " << cfg.run_count << "\n";
@@ -233,17 +245,136 @@ int main(int argc, char** argv) {
     for (int i = 0; i < cfg.run_count; ++i) out << ",Run " << (i + 1) << " (GB/s)";
     out << ",Mean,Std Dev\n";
 
-    do_fft_size_run<8, 256>(out, cfg, test_name);
-    do_fft_size_run<16, 128>(out, cfg, test_name);
-    do_fft_size_run<32, 64>(out, cfg, test_name);
-    do_fft_size_run<64, 32>(out, cfg, test_name);
-    do_fft_size_run<128, 32>(out, cfg, test_name);
-    do_fft_size_run<256, 16>(out, cfg, test_name);
-    do_fft_size_run<512, 16>(out, cfg, test_name);
-    do_fft_size_run<1024, 8>(out, cfg, test_name);
-    do_fft_size_run<2048, 4>(out, cfg, test_name);
-    do_fft_size_run<4096, 2>(out, cfg, test_name);
+    do_fft_size_run<8, 256, reference_mode>(out, cfg, test_name);
+    do_fft_size_run<16, 128, reference_mode>(out, cfg, test_name);
+    do_fft_size_run<32, 64, reference_mode>(out, cfg, test_name);
+    do_fft_size_run<64, 32, reference_mode>(out, cfg, test_name);
+    do_fft_size_run<128, 32, reference_mode>(out, cfg, test_name);
+    do_fft_size_run<256, 16, reference_mode>(out, cfg, test_name);
+    do_fft_size_run<512, 16, reference_mode>(out, cfg, test_name);
+    do_fft_size_run<1024, 8, reference_mode>(out, cfg, test_name);
+    do_fft_size_run<2048, 4, reference_mode>(out, cfg, test_name);
+    do_fft_size_run<4096, 2, reference_mode>(out, cfg, test_name);
 
     std::cout << "Results saved to " << output_name << "\n";
+}
+
+template<int FFTSize, int FFTsInBlock>
+void run_validation_test(const Config& cfg) {
+    cufftComplex* d_data = nullptr;
+    checkCuda(cudaMalloc(&d_data, cfg.data_size * sizeof(cufftComplex)), "cudaMalloc d_data");
+    checkCuda(cudaMemset(d_data, 0, cfg.data_size * sizeof(cufftComplex)), "cudaMemset d_data");
+
+    cufftComplex* d_kernel = nullptr;
+    checkCuda(cudaMalloc(&d_kernel, cfg.data_size * sizeof(cufftComplex)), "cudaMalloc d_kernel");
+    checkCuda(cudaMemset(d_kernel, 0, cfg.data_size * sizeof(cufftComplex)), "cudaMemset d_kernel");
+
+    cufftComplex* d_data_ref = nullptr;
+    checkCuda(cudaMalloc(&d_data_ref, cfg.data_size * sizeof(cufftComplex)), "cudaMalloc d_data_ref");
+    checkCuda(cudaMemset(d_data_ref, 0, cfg.data_size * sizeof(cufftComplex)), "cudaMemset d_data_ref");
+
+    cufftComplex* d_kernel_ref = nullptr;
+    checkCuda(cudaMalloc(&d_kernel_ref, cfg.data_size * sizeof(cufftComplex)), "cudaMalloc d_kernel_ref");
+    checkCuda(cudaMemset(d_kernel_ref, 0, cfg.data_size * sizeof(cufftComplex)), "cudaMemset d_kernel_ref");
+
+    {
+        int t = 256, b = int((cfg.data_size + t - 1) / t);
+        fill_randomish<<<b,t>>>(d_data, cfg.data_size);
+        checkCuda(cudaGetLastError(), "fill launch");
+        checkCuda(cudaDeviceSynchronize(), "fill sync");
+
+        int kt = 256, kb = int((cfg.data_size + kt - 1) / kt);
+        fill_randomish<<<kb,kt>>>(d_kernel, cfg.data_size);
+        checkCuda(cudaGetLastError(), "fill kernel launch");
+        checkCuda(cudaDeviceSynchronize(), "fill kernel sync");
+    }
+
+    // Copy to reference buffers
+    cudaMemcpy(d_data_ref, d_data, cfg.data_size * sizeof(cufftComplex), cudaMemcpyDeviceToDevice);
+    cudaMemcpy(d_kernel_ref, d_kernel, cfg.data_size * sizeof(cufftComplex), cudaMemcpyDeviceToDevice);
+
+    // --- Create explicit CUDA stream ---
+    cudaStream_t stream;
+    checkCuda(cudaStreamCreate(&stream), "cudaStreamCreate");
+
+    // --- plan bound to the stream ---
+    void* plan = init_test<FFTSize, FFTsInBlock, false>(cfg.data_size, stream);
+    void* plan_ref = init_test<FFTSize, FFTsInBlock, true>(cfg.data_size, stream);
+
+    // --- warmup on the stream (without graph) ---
+    run_test<FFTSize, FFTsInBlock, false>(plan, d_data, d_kernel, cfg.data_size, stream);
+    run_test<FFTSize, FFTsInBlock, true>(plan_ref, d_data_ref, d_kernel_ref, cfg.data_size, stream);
+
+    cufftComplex* h_data = new cufftComplex[cfg.data_size];
+    cufftComplex* h_data_ref = new cufftComplex[cfg.data_size];
+    checkCuda(cudaMemcpy(h_data, d_data, cfg.data_size * sizeof(cufftComplex), cudaMemcpyDeviceToHost), "memcpy data");
+    checkCuda(cudaMemcpy(h_data_ref, d_data_ref, cfg.data_size * sizeof(cufftComplex), cudaMemcpyDeviceToHost), "memcpy data ref");
+
+    // Validate results
+    int errors = 0;
+    const float max_abs_error = 1e-6f * FFTSize * FFTSize; // allow some error accumulation
+    for (long long i = 0; i < cfg.data_size; ++i) {
+        float diff_x = std::fabs(h_data[i].x - h_data_ref[i].x);
+        float diff_y = std::fabs(h_data[i].y - h_data_ref[i].y);
+
+        float diff_2 = diff_x * diff_x + diff_y * diff_y;
+
+
+        if (diff_2 > max_abs_error) {
+            if (errors < 10) {
+                std::cout << "Mismatch at index " << i << ": got (" << h_data[i].x << ", " << h_data[i].y
+                          << "), expected (" << h_data_ref[i].x << ", " << h_data_ref[i].y << ")"
+                          << ", diff (" << diff_x << ", " << diff_y << ")"
+                          << ", diff^2 " << diff_2 << ", max allowed " << max_abs_error << "\n";
+            }
+            errors++;
+        }
+    }
+
+    delete_test<FFTSize, FFTsInBlock, false>(plan);
+    delete_test<FFTSize, FFTsInBlock, true>(plan_ref);
+
+    //cufftDestroy(plan);
+    cudaStreamDestroy(stream);
+    cudaFree(d_data);
+    cudaFree(d_kernel);
+    cudaFree(d_data_ref);
+    cudaFree(d_kernel_ref);
+    delete[] h_data;
+    delete[] h_data_ref;
+    if (errors == 0) {
+        std::cout << "Validation passed for FFT size " << FFTSize << "\n";
+    } else {
+        std::cout << "Validation failed for FFT size " << FFTSize << " with " << errors << " errors\n";
+    }
+}
+
+void run_validation_tests(const Config& cfg) {
+    std::cout << "Running validation tests with data size " << cfg.data_size << "\n";
+
+    run_validation_test<8, 256>(cfg);
+    run_validation_test<16, 128>(cfg);
+    run_validation_test<32, 64>(cfg);
+    run_validation_test<64, 32>(cfg);
+    run_validation_test<128, 32>(cfg);
+    run_validation_test<256, 16>(cfg);
+    run_validation_test<512, 16>(cfg);
+    run_validation_test<1024, 8>(cfg);
+    run_validation_test<2048, 4>(cfg);
+    run_validation_test<4096, 2>(cfg);
+}
+
+int main(int argc, char** argv) {
+    const Config cfg = parse_args(argc, argv);
+
+    if (cfg.validation)
+        run_validation_tests(cfg);
+
+    if (cfg.performance_cufftdx)
+        run_performance_tests<false>(cfg, "cufftdx");
+    
+    if (cfg.performance_cufft)
+        run_performance_tests<true>(cfg, "cufft");
+    
     return 0;
 }

@@ -5,10 +5,6 @@
 #include "../common/nonstrided_kernels.cuh"
 #include <cufft.h>
 
-const char* get_test_name() {
-    return "cufftdx";
-}
-
 float get_bandwith_scale_factor() {
     return 4.0f;
 }
@@ -19,8 +15,32 @@ struct FFT2DConfig {
     StridedFFTConfig<FFTSize, FFTsInBlock, true, false> fft_strided;
 };
 
-template<int FFTSize, int FFTsInBlock>
+template<int FFTSize, int FFTsInBlock, bool reference_mode>
 void* init_test(long long data_size, cudaStream_t stream) {
+    if constexpr (reference_mode) {
+        cufftHandle* plan = new cufftHandle();
+
+        const long long dim2 = FFTSize;
+        const long long dim1 = FFTSize;
+        const long long dim0 = data_size / (dim1 * dim2);
+
+        int n[2] = { int(dim1), int(dim2) };
+        int inembed[2] = { int(dim1), int(dim2) };
+        int onembed[2] = { int(dim1), int(dim2) };
+        int istride    = 1;
+        int ostride    = 1;
+        int idist      = int(dim1)* int(dim2);
+        int odist      = int(dim1)* int(dim2);
+
+        checkCuFFT(cufftPlanMany(plan, 2, n,
+                                    inembed,  istride, idist,
+                                    onembed,  ostride, odist,
+                                    CUFFT_C2C, int(dim0)), "plan2d");
+        checkCuFFT(cufftSetStream(*plan, stream), "cufftSetStream");
+
+        return static_cast<void*>(plan);
+    }
+
     auto config = new FFT2DConfig<FFTSize, FFTsInBlock>();
     
     config->fft_nonstrided.init(stream);
@@ -29,8 +49,24 @@ void* init_test(long long data_size, cudaStream_t stream) {
     return static_cast<void*>(config);
 }
 
-template<int FFTSize, int FFTsInBlock>
+template<int FFTSize, int FFTsInBlock, bool reference_mode>
 void run_test(void* plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems, cudaStream_t stream){
+    if constexpr (reference_mode) {
+        checkCuFFT(cufftExecC2C(*static_cast<cufftHandle*>(plan), d_data, d_data, CUFFT_FORWARD), "exec");
+        return;
+    }
+    
     static_cast<FFT2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_nonstrided.execute_fft(d_data, total_elems, stream);
     static_cast<FFT2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_strided.execute_fft(d_data, total_elems, stream);
+}
+
+template<int FFTSize, int FFTsInBlock, bool reference_mode>
+void delete_test(void* plan) {
+    if constexpr (reference_mode) {
+        cufftDestroy(*static_cast<cufftHandle*>(plan));
+        delete static_cast<cufftHandle*>(plan);
+        return;
+    }
+
+    delete static_cast<FFT2DConfig<FFTSize, FFTsInBlock>*>(plan);
 }

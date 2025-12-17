@@ -121,36 +121,6 @@ def get_cuda_info():
 
     return __cuda_info
 
-def cufft_test(test_name: str, nvcc_dir: str, cuda_arch: int):
-    if platform.system() == "Darwin":
-        print(f"Skipping {test_name} cuFFT test on macOS")
-        return
-
-    if not os.path.isfile(f"tests/{test_name}/cufft_test.cu"):
-        print(f"Skipping {test_name} cuFFT test - cufft_test.cu not found")
-        return
-    
-    print(f"Compiling {test_name} cuFFT test...")
-    run_process([nvcc_dir,
-                 "-O3",
-                 "-std=c++17", 
-                 "../cufft_test.cu",
-                 "-gencode", f"arch=compute_{cuda_arch},code=sm_{cuda_arch}",
-                 "-lcufft",
-                 "-lculibos",
-                 "-o",
-                 "cufft_test.exec"],
-                 cwd=Path(f"tests/{test_name}/test_results").resolve())
-    print(f"Running {test_name} cuFFT test...")
-    run_process([f"./cufft_test.exec",
-                    str(DATA_SIZE),
-                    str(ITER_COUNT),
-                    str(BATCH_SIZE),
-                    str(REPEATS)],
-                    cwd=Path(f"tests/{test_name}/test_results").resolve())
-    
-    os.remove(f"tests/{test_name}/test_results/cufft_test.exec")
-
 def cufftdx_test(test_name: str, nvcc_dir: str, cuda_arch: int):
     if platform.system() == "Darwin":
         print(f"Skipping {test_name} cuFFTdx test on macOS")
@@ -172,13 +142,34 @@ def cufftdx_test(test_name: str, nvcc_dir: str, cuda_arch: int):
                  "-lcufft", "-lculibos",
                  "-o",  "cufftdx_test.exec"],
                  cwd=Path(f"tests/{test_name}/test_results").resolve())
-    print(f"Running {test_name} cuFFTdx test...")
-    run_process([f"./cufftdx_test.exec",
-                    str(DATA_SIZE),
-                    str(ITER_COUNT),
-                    str(BATCH_SIZE),
-                    str(REPEATS)],
-                    cwd=Path(f"tests/{test_name}/test_results").resolve())
+    
+    if sys.argv.count('--validate') > 0:
+        print(f"Running {test_name} cuFFTdx validation test...")
+        run_process([f"./cufftdx_test.exec",
+                        str(DATA_SIZE),
+                        str(ITER_COUNT),
+                        str(BATCH_SIZE),
+                        str(REPEATS),
+                        str(2)],
+                        cwd=Path(f"tests/{test_name}/test_results").resolve())
+    else:
+        print(f"Running {test_name} cuFFT test...")
+        run_process([f"./cufftdx_test.exec",
+                        str(DATA_SIZE),
+                        str(ITER_COUNT),
+                        str(BATCH_SIZE),
+                        str(REPEATS),
+                        str(1)],
+                        cwd=Path(f"tests/{test_name}/test_results").resolve())
+        
+        print(f"Running {test_name} cuFFTdx test...")
+        run_process([f"./cufftdx_test.exec",
+                        str(DATA_SIZE),
+                        str(ITER_COUNT),
+                        str(BATCH_SIZE),
+                        str(REPEATS),
+                        str(0)],
+                        cwd=Path(f"tests/{test_name}/test_results").resolve())
     
     os.remove(f"tests/{test_name}/test_results/cufftdx_test.exec")
 
@@ -188,10 +179,12 @@ def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
     if not os.path.isdir(f"tests/{test_name}/test_results"):
         os.mkdir(f"tests/{test_name}/test_results")
 
-    if cuda_enabled:
+    if cuda_enabled or sys.argv.count('--validate') > 0:
         nvcc_dir, cuda_arch = get_cuda_info()
-        cufft_test(test_name, nvcc_dir, cuda_arch)
         cufftdx_test(test_name, nvcc_dir, cuda_arch)
+
+    if sys.argv.count('--validate') > 0:
+        return
 
     print(f"Running VkDispatch {test_name} test...")
     run_process(['python3', '../vkdispatch_test.py',
@@ -217,19 +210,19 @@ def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
 if __name__ == "__main__":
     fetch_dependencies()
 
-    run_test(
-        test_name="fft_nonstrided",
-        title="Nonstrided FFT Performance",
-        xlabel="FFT Size",
-        ylabel="GB/s (higher is better)"
-    )
+    # run_test(
+    #     test_name="fft_nonstrided",
+    #     title="Nonstrided FFT Performance",
+    #     xlabel="FFT Size",
+    #     ylabel="GB/s (higher is better)"
+    # )
 
-    run_test(
-        test_name="fft_strided",
-        title="Strided FFT Performance",
-        xlabel="FFT Size",
-        ylabel="GB/s (higher is better)"
-    )
+    # run_test(
+    #     test_name="fft_strided",
+    #     title="Strided FFT Performance",
+    #     xlabel="FFT Size",
+    #     ylabel="GB/s (higher is better)"
+    # )
 
     run_test(
         test_name="fft_2d",
