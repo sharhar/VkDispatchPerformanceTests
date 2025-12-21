@@ -200,13 +200,13 @@ def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
     if sys.argv.count('--validate') > 0:
         return
 
-    print(f"Running VkDispatch {test_name} test...")
-    run_process(['python3', '../vkdispatch_test.py',
-             str(DATA_SIZE),
-             str(ITER_COUNT),
-             str(BATCH_SIZE),
-             str(REPEATS)],
-            cwd=Path(f"tests/{test_name}/test_results").resolve())
+    # print(f"Running VkDispatch {test_name} test...")
+    # run_process(['python3', '../vkdispatch_test.py',
+    #          str(DATA_SIZE),
+    #          str(ITER_COUNT),
+    #          str(BATCH_SIZE),
+    #          str(REPEATS)],
+    #         cwd=Path(f"tests/{test_name}/test_results").resolve())
     
     if os.path.isfile(f"tests/{test_name}/vkfft_test.py"):
         print(f"Running VKFFT {test_name} test...")
@@ -245,13 +245,13 @@ if __name__ == "__main__":
     #     ylabel="GB/s (higher is better)"
     # )
 
-    if cuda_enabled:
-        run_nvidia_test(
-            test_name="conv_scaled_nvidia",
-            title="NVidia Scaled Convolution Performance",
-            xlabel="Convolution Size (FFT size)",
-            ylabel="ms (lower is better)"
-        )
+    # if cuda_enabled:
+    #     run_nvidia_test(
+    #         test_name="conv_scaled_nvidia",
+    #         title="NVidia Scaled Convolution Performance",
+    #         xlabel="Convolution Size (FFT size)",
+    #         ylabel="ms (lower is better)"
+    #     )
 
     # run_test(
     #     test_name="conv_scaled_control",
@@ -260,12 +260,12 @@ if __name__ == "__main__":
     #     ylabel="GB/s (higher is better)"
     # )
 
-    # run_test(
-    #     test_name="conv_2d",
-    #     title="2D Convolution Performance",
-    #     xlabel="Convolution Size (FFT size)", 
-    #     ylabel="GB/s (higher is better)"
-    # )
+    run_test(
+        test_name="conv_2d",
+        title="2D Convolution Performance",
+        xlabel="Convolution Size (FFT size)", 
+        ylabel="GB/s (higher is better)"
+    )
 
     # run_test(
     #     test_name="conv_2d_padded",

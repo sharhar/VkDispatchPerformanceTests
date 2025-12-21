@@ -1,4 +1,1 @@
-from .config import Config, get_fft_sizes, parse_args
-from .entrypoint import entrypoint
-
-from .vkdispatch_runner import run_vkdispatch
+from run_test import run_test, Config

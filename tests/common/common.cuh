@@ -29,7 +29,7 @@
         }
 #endif // CUDA_CHECK_AND_EXIT
 
-float get_bandwith_scale_factor();
+float get_bandwith_scale_factor(long long elem_count, long long fft_size);
 
 template<int FFTSize, int FFTsInBlock, bool reference_mode>
 void* init_test(long long data_size, cudaStream_t stream);
@@ -186,7 +186,7 @@ static double run_cufft_case(const Config& cfg) {
     const double seconds = static_cast<double>(ms) / 1000.0;
 
     // Compute throughput in GB/s
-    const double gb_per_exec_once = get_bandwith_scale_factor() * gb_per_exec(cfg.data_size);
+    const double gb_per_exec_once = get_bandwith_scale_factor(cfg.data_size, FFTSize) * gb_per_exec(cfg.data_size);
     const double total_execs = static_cast<double>(cfg.iter_count);
     const double gb_per_second = (total_execs * gb_per_exec_once) / seconds;
 
