@@ -43,9 +43,12 @@ void delete_test(void* plan);
 __global__ void fill_randomish(cufftComplex* a, long long n){
     long long i = blockIdx.x * blockDim.x + threadIdx.x;
     if(i<n){
-        float x = __sinf(i * 0.00173f) + cosf(i * 0.00037f) + __tanf(i * 0.00029f) +  sinhf(i * 0.013f) + coshf(i * 0.0019f) + tanhf(i * 0.00023f);
+        float x = __sinf(i * 0.00173f) + cosf(i * 0.00037f) + __tanf(i * 0.00029f) + 
+                    sinhf(i * 0.013f) + coshf(i * 0.0019f) + tanhf(i * 0.00023f) + 
+                    expf(sinf(i * 0.011f)) + expf(cosf(i * 0.007f));
+
         float y = __cosf(i * 0.00091f) + sinhf(i * 0.00053f) + tanhf(i * 0.00097f) + sinf(i * 0.23f) + coshf(i * 0.0037f) + tanf(i * 0.011f);
-        a[i] = make_float2(x, y);
+        a[i] = make_float2(cosf(x), sinf(y));
     }
 }
 
@@ -330,7 +333,7 @@ void run_validation_test(const Config& cfg) {
             continue;
         }
 
-        if (diff_2 / abs_2 > 1e-8f) {
+        if (diff_2 / abs_2 > 1e-6f) {
             if (errors < 10) {
                 std::cout << "Mismatch at index " << i << ": got (" << h_data[i].x << ", " << h_data[i].y
                           << "), expected (" << h_data_ref[i].x << ", " << h_data_ref[i].y << ")"

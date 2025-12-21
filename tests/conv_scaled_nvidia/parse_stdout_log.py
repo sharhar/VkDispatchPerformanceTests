@@ -23,23 +23,34 @@ with open(filename, 'r') as f:
             iter_count = int(parts[0].strip().split(' ')[1])
             fft_size = int(parts[1].strip().split('=')[1])
 
-            cufftdx_line = lines_list[ii + 7]
-            cufft_line = lines_list[ii + 16]
+            fft_count_line = lines_list[ii + 3]
+            cufftdx_line = lines_list[ii + 6]
+            cufft_line = lines_list[ii + 15]
 
-            assert cufftdx_line.startswith('Time (all) [ms_n]: ')
-            assert cufft_line.startswith('Time (all) [ms_n]: ')
+            assert fft_count_line.startswith('FFTs run: ')
+            assert cufftdx_line.startswith('Avg Time [ms_n]: ')
+            assert cufft_line.startswith('Avg Time [ms_n]: ')
             
-            prefix_size = len('Time (all) [ms_n]: ')
+            fft_count = int(fft_count_line[len('FFTs run: '):].strip())
+
+            gb_byte_count = fft_size * 2 * 4 * fft_count / (1 << 30)
+
+            data_size = 6 * gb_byte_count # We read and write 3 times
+
+            prefix_size = len('Avg Time [ms_n]: ')
 
             cufftdx_time = float(cufftdx_line[prefix_size:].strip())
             cufft_time = float(cufft_line[prefix_size:].strip())
 
-            cufft_data[(iter_count, fft_size)] = cufft_time
-            cufftdx_data[(iter_count, fft_size)] = cufftdx_time
+            cufftdx_bandwidth = data_size / (cufftdx_time * 1e-3)
+            cufft_bandwitdh = data_size / (cufft_time * 1e-3)
+
+            cufft_data[(iter_count, fft_size)] = cufft_bandwitdh
+            cufftdx_data[(iter_count, fft_size)] = cufftdx_bandwidth
 
             max_iter_count = max(max_iter_count, iter_count)
 
-run_str = "".join([f"Run {i+1} (ms)," for i in range(max_iter_count)])
+run_str = "".join([f"Run {i+1} (GB/s)," for i in range(max_iter_count)])
 
 fft_sizes = [64, 128, 256, 512, 1024, 2048, 4096]
 
@@ -55,7 +66,6 @@ for fft_size in fft_sizes:
     for i in range(max_iter_count):
         cufft_iterations.append(cufft_data[(i + 1, fft_size)])
         cufftdx_iterations.append(cufftdx_data[(i + 1, fft_size)])
-
 
     cufft_mean = np.mean(cufft_iterations)
     cufft_std = np.std(cufft_iterations)
@@ -80,6 +90,3 @@ with open('test_results/cufft.csv', 'w') as f:
 
 with open('test_results/cufftdx.csv', 'w') as f:
     f.write(cufftdx_header)
-
-# with open('test_results/nvidia_ratios.csv', 'w') as f:
-#     f.write(ratios_header)
