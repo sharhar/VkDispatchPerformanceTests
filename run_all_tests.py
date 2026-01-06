@@ -200,13 +200,13 @@ def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
     if sys.argv.count('--validate') > 0:
         return
 
-    # print(f"Running VkDispatch {test_name} test...")
-    # run_process(['python3', '../vkdispatch_test.py',
-    #          str(DATA_SIZE),
-    #          str(ITER_COUNT),
-    #          str(BATCH_SIZE),
-    #          str(REPEATS)],
-    #         cwd=Path(f"tests/{test_name}/test_results").resolve())
+    print(f"Running VkDispatch {test_name} test...")
+    run_process(['python3', '../vkdispatch_test.py',
+             str(DATA_SIZE),
+             str(ITER_COUNT),
+             str(BATCH_SIZE),
+             str(REPEATS)],
+            cwd=Path(f"tests/{test_name}/test_results").resolve())
     
     if os.path.isfile(f"tests/{test_name}/vkfft_test.py"):
         print(f"Running VKFFT {test_name} test...")

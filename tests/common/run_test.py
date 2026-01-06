@@ -1,6 +1,6 @@
 import vkdispatch as vd
 
-from typing import Callable, Tuple
+from typing import Callable, Tuple, Union
 
 import dataclasses
 import csv
@@ -42,11 +42,9 @@ def parse_args() -> Config:
 def get_fft_sizes():
     return [2**i for i in range(3, 13)]  # FFT sizes from 64 to 4096 (inclusive)
 
-
-
 def run_vkdispatch(config: Config,
                     fft_size: int,
-                    io_count: int,
+                    io_count: Union[int, Callable],
                     gpu_function: Callable) -> float:
     shape = config.make_shape(fft_size)
 
@@ -64,6 +62,9 @@ def run_vkdispatch(config: Config,
         graph.submit(config.iter_batch)
 
     vd.queue_wait_idle()
+
+    if callable(io_count):
+        io_count = io_count(buffer.size, fft_size)
 
     gb_byte_count = io_count * 8 * buffer.size / (1024 * 1024 * 1024)
     
@@ -88,7 +89,7 @@ def run_vkdispatch(config: Config,
     return gb_byte_count, elapsed_time
 
 def run_test(test_name: str,
-               io_count: int,
+               io_count: Union[int, Callable],
                gpu_function: Callable):
     config = parse_args()
     fft_sizes = get_fft_sizes()
