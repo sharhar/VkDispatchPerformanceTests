@@ -5,14 +5,18 @@
 #include "../common/nonstrided_kernels.cuh"
 #include <cufft.h>
 
-float get_bandwith_scale_factor() {
-    return 11.0f;
+float get_bandwith_scale_factor(long long elem_count, long long fft_size) {
+    double total_elements = static_cast<double>(elem_count);
+    double fft_elements = static_cast<double>(fft_size * fft_size);
+    double kernel_scaled_size = fft_elements / total_elements;
+
+    return 10.0f + static_cast<float>(kernel_scaled_size);
 }
 
 template<int FFTSize, int FFTsInBlock>
 struct FFTConv2DConfig {
     NonStridedFFTConfig<FFTSize, FFTsInBlock, 1> fft_nonstrided;
-    StridedFFTConfig<FFTSize, FFTsInBlock, true, false, 1> fft_strided;
+    StridedFFTConfig<FFTSize, FFTsInBlock, true, true, 1> fft_strided;
 };
 
 template<int FFTSize, int FFTsInBlock, bool reference_mode>
@@ -50,13 +54,12 @@ void* init_test(long long data_size, cudaStream_t stream) {
     return static_cast<void*>(config);
 }
 
-
-__global__ void convolve_arrays(cufftComplex* data, cufftComplex* kernel, long long total_elems) {
+__global__ void convolve_arrays(cufftComplex* data, cufftComplex* kernel, long long total_elems, long long fft_size) {
     long long i = blockIdx.x * 1LL * blockDim.x + threadIdx.x;
     if (i < total_elems) {
         const size_t idx_in_image = i;
         const cufftComplex d = data[i];
-        const cufftComplex k = kernel[idx_in_image];
+        const cufftComplex k = kernel[idx_in_image % (fft_size * fft_size)];
 
         const float real = d.x * k.x - d.y * k.y;
         const float imag = d.x * k.y + d.y * k.x;
@@ -68,7 +71,7 @@ template<int FFTSize, int FFTsInBlock, bool reference_mode, bool validate>
 void run_test(void* plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems, cudaStream_t stream){
     if constexpr (reference_mode) {
         checkCuFFT(cufftExecC2C(*static_cast<cufftHandle*>(plan), d_data, d_data, CUFFT_FORWARD), "exec");
-        convolve_arrays<<<(total_elems+255)/256,256,0,stream>>>(d_data, d_kernel, total_elems);
+        convolve_arrays<<<(total_elems+255)/256,256,0,stream>>>(d_data, d_kernel, total_elems, FFTSize);
         checkCuFFT(cufftExecC2C(*static_cast<cufftHandle*>(plan), d_data, d_data, CUFFT_INVERSE), "exec");
         return;
     }

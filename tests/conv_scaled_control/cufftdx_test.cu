@@ -4,7 +4,7 @@
 #include "../common/nonstrided_kernels.cuh"
 #include <cufft.h>
 
-float get_bandwith_scale_factor() {
+float get_bandwith_scale_factor(long long elem_count, long long fft_size) {
     return 6.0f;
 }
 
@@ -39,12 +39,12 @@ template<int FFTSize, int FFTsInBlock, bool reference_mode, bool validate>
 void run_test(void* plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems, cudaStream_t stream){
     if constexpr (reference_mode) {
         checkCuFFT(cufftExecC2C(*static_cast<cufftHandle*>(plan), d_data, d_data, CUFFT_FORWARD), "exec");
-        scale_kernel<<<(total_elems+255)/256,256,0,stream>>>(d_data, 5.0, total_elems);
+        scale_kernel<<<(total_elems+255)/256,256,0,stream>>>(d_data, 0.1f, total_elems);
         checkCuFFT(cufftExecC2C(*static_cast<cufftHandle*>(plan), d_data, d_data, CUFFT_INVERSE), "exec");
         return;
     }
     
-    static_cast<NonStridedFFTConfig<FFTSize, FFTsInBlock, 1>*>(plan)->execute_conv(d_data, total_elems, stream, 5.0f);
+    static_cast<NonStridedFFTConfig<FFTSize, FFTsInBlock, 1>*>(plan)->execute_conv(d_data, total_elems, stream, 0.1f);
 }
 
 template<int FFTSize, int FFTsInBlock, bool reference_mode>

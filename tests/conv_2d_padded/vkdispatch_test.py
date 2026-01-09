@@ -2,7 +2,7 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from common import entrypoint, run_vkdispatch, Config
+from common import run_test, Config
 
 import vkdispatch as vd
 import vkdispatch.codegen as vc
@@ -99,6 +99,6 @@ def test_function_naive(config: Config,
     vd.fft.ifft2(buffer)
 
 if __name__ == "__main__":
-    entrypoint("vkdispatch", run_vkdispatch, 11, test_function)
-    entrypoint("vkdispatch_transpose", run_vkdispatch, 11, test_function_transpose)
-    entrypoint("vkdispatch_naive", run_vkdispatch, 11, test_function_naive)
+    run_test("vkdispatch", 11, test_function)
+    run_test("vkdispatch_transpose", 11, test_function_transpose)
+    run_test("vkdispatch_naive", 11, test_function_naive)

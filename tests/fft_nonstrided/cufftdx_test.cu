@@ -4,7 +4,7 @@
 #include "../common/nonstrided_kernels.cuh"
 #include <cufft.h>
 
-float get_bandwith_scale_factor() {
+float get_bandwith_scale_factor(long long elem_count, long long fft_size) {
     return 2.0f;
 }
 

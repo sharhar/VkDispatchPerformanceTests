@@ -7,14 +7,14 @@
 
 #define PADDING_RATIO 2
 
-float get_bandwith_scale_factor() {
+float get_bandwith_scale_factor(long long elem_count, long long fft_size) {
     return 11.0f;
 }
 
 template<int FFTSize, int FFTsInBlock>
 struct FFTConv2DConfig {
     NonStridedFFTConfig<FFTSize, FFTsInBlock, PADDING_RATIO> fft_nonstrided;
-    StridedFFTConfig<FFTSize, FFTsInBlock, true, false, PADDING_RATIO> fft_strided;
+    StridedFFTConfig<FFTSize, FFTsInBlock, true, true, PADDING_RATIO> fft_strided;
 };
 
 template<int FFTSize, int FFTsInBlock, bool reference_mode>

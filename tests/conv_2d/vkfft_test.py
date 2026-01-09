@@ -2,9 +2,12 @@ import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from common import entrypoint, run_vkdispatch, Config
+from common import run_test, Config
 
 import vkdispatch as vd
+
+def io_count(elem_count: int, fft_size: int) -> int:
+    return 10.0 + (fft_size * fft_size) / elem_count
 
 def test_function(config: Config,
                     fft_size: int,
@@ -13,4 +16,5 @@ def test_function(config: Config,
     vd.vkfft.convolve2D(buffer, kernel)
 
 if __name__ == "__main__":
-    entrypoint("vkfft", run_vkdispatch, 11, test_function)
+    run_test("vkfft", 11, test_function)
+

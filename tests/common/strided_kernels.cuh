@@ -159,7 +159,7 @@ __global__ void strided_fft_kernel(cufftComplex* data, unsigned int inner_fft_co
     store_strided<FFT, smem_transpose>(thread_data, shared_mem, data, stride_len);
 }
 
-template<class FFT, bool smem_transpose, bool read_kernel_transposed> 
+template<class FFT, bool smem_transpose, bool read_kernel_transposed, bool multi_layer_kernel> 
 __device__ void apply_kernel(float2* kernel, float2* thread_data, float2* shared_mem, unsigned int inner_batch_count) {
     if constexpr (read_kernel_transposed) {
         const size_t kernel_stride       = blockDim.x * blockDim.y * gridDim.x * gridDim.y;
@@ -168,7 +168,14 @@ __device__ void apply_kernel(float2* kernel, float2* thread_data, float2* shared
 
         // complex multiplication in the frequency domain
         for (unsigned int i = 0; i < FFT::elements_per_thread; ++i) {
-            float2 kernel_thread_data = kernel[kernel_index];
+            float2 kernel_thread_data;// = kernel[kernel_index];
+
+            if constexpr (multi_layer_kernel) {
+                kernel_thread_data = kernel[kernel_index];
+            } else {
+                kernel_thread_data = kernel[kernel_index % (cufftdx::size_of<FFT>::value * cufftdx::size_of<FFT>::value)];
+            }
+
             kernel_index += kernel_stride;
 
             float2 a;
@@ -229,7 +236,7 @@ __global__ void strided_conv_kernel(cufftComplex* data, const cufftComplex* kern
     
     FFT().execute(thread_data, shared_mem, workspace);
 
-    apply_kernel<FFT, smem_transpose, read_kernel_transposed>( (float2*)kernel, (float2*)thread_data, (float2*)shared_mem, inner_fft_count);
+    apply_kernel<FFT, smem_transpose, read_kernel_transposed, false>( (float2*)kernel, (float2*)thread_data, (float2*)shared_mem, inner_fft_count);
 
     IFFT().execute(thread_data, shared_mem, iworkspace);
 
@@ -247,7 +254,7 @@ __global__ void strided_padded_conv_kernel(cufftComplex* data, const cufftComple
     
     FFT().execute(thread_data, shared_mem, workspace);
 
-    apply_kernel<FFT, smem_transpose, read_kernel_transposed>( (float2*)kernel, (float2*)thread_data, (float2*)shared_mem, inner_fft_count);
+    apply_kernel<FFT, smem_transpose, read_kernel_transposed, true>( (float2*)kernel, (float2*)thread_data, (float2*)shared_mem, inner_fft_count);
 
     IFFT().execute(thread_data, shared_mem, iworkspace);
 
