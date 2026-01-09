@@ -1,13 +1,13 @@
 #! /bin/bash
 
-cd cufftdx_validation
-python3 make_tables.py
-cd ..
-
-cd vulkan_cuda_calibration
-python3 make_tables.py
+cd scaled_convolution
+python3 make_figure.py
 cd ..
 
 cd 2d_convolution
-python3 make_figures.py
+python3 make_figure.py
+cd ..
+
+cd 2d_padded_convolution
+python3 make_figure.py
 cd ..

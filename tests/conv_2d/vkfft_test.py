@@ -16,5 +16,6 @@ def test_function(config: Config,
     vd.vkfft.convolve2D(buffer, kernel)
 
 if __name__ == "__main__":
-    run_test("vkfft", 11, test_function)
+    pass
+    #run_test("vkfft", 11, test_function)
 
