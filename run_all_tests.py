@@ -239,19 +239,19 @@ if __name__ == "__main__":
     #         ylabel="ms (lower is better)"
     #     )
 
-    run_test(
-        test_name="conv_scaled_control",
-        title="Control Scaled Convolution Performance",
-        xlabel="Convolution Size (FFT size)", 
-        ylabel="GB/s (higher is better)"
-    )
+    # run_test(
+    #     test_name="conv_scaled_control",
+    #     title="Control Scaled Convolution Performance",
+    #     xlabel="Convolution Size (FFT size)", 
+    #     ylabel="GB/s (higher is better)"
+    # )
 
-    run_test(
-        test_name="conv_2d",
-        title="2D Convolution Performance",
-        xlabel="Convolution Size (FFT size)", 
-        ylabel="GB/s (higher is better)"
-    )
+    # run_test(
+    #     test_name="conv_2d",
+    #     title="2D Convolution Performance",
+    #     xlabel="Convolution Size (FFT size)", 
+    #     ylabel="GB/s (higher is better)"
+    # )
 
     run_test(
         test_name="conv_2d_padded",

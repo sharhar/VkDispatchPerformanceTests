@@ -13,5 +13,4 @@ def test_function(config: Config,
     vd.vkfft.convolve2D(buffer, kernel)
 
 if __name__ == "__main__":
-    if vd.get_context().is_apple():
-        entrypoint("vkfft", run_vkdispatch, 11, test_function)
+    entrypoint("vkfft", run_vkdispatch, 11, test_function)
