@@ -6,11 +6,11 @@
 #include <cufft.h>
 
 float get_bandwith_scale_factor(long long elem_count, long long fft_size) {
-    double total_elements = static_cast<double>(elem_count);
-    double fft_elements = static_cast<double>(fft_size * fft_size);
-    double kernel_scaled_size = fft_elements / total_elements;
+    //double total_elements = static_cast<double>(elem_count);
+    //double fft_elements = static_cast<double>(fft_size * fft_size);
+    //double kernel_scaled_size = fft_elements / total_elements;
 
-    return 10.0f + static_cast<float>(kernel_scaled_size);
+    return 11.0f; //10.0f + static_cast<float>(kernel_scaled_size);
 }
 
 template<int FFTSize, int FFTsInBlock>
@@ -59,7 +59,7 @@ __global__ void convolve_arrays(cufftComplex* data, cufftComplex* kernel, long l
     if (i < total_elems) {
         const size_t idx_in_image = i;
         const cufftComplex d = data[i];
-        const cufftComplex k = kernel[idx_in_image % (fft_size * fft_size)];
+        const cufftComplex k = kernel[idx_in_image]; // % (fft_size * fft_size)];
 
         const float real = d.x * k.x - d.y * k.y;
         const float imag = d.x * k.y + d.y * k.x;

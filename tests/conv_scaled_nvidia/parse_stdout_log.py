@@ -85,8 +85,8 @@ for fft_size in fft_sizes:
 
     ratios_header += f"nvidia,{fft_size},{ratio:.4f},{ratio_std:.4f}\n"
 
-with open('test_results/cufft.csv', 'w') as f:
+with open('test_results/cufft_nvidia.csv', 'w') as f:
     f.write(cufft_header)
 
-with open('test_results/cufftdx.csv', 'w') as f:
+with open('test_results/cufftdx_nvidia.csv', 'w') as f:
     f.write(cufftdx_header)

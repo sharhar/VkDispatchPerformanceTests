@@ -5,7 +5,7 @@
 #include "../common/nonstrided_kernels.cuh"
 #include <cufft.h>
 
-#define PADDING_RATIO 2
+#define PADDING_RATIO 8
 
 float get_bandwith_scale_factor(long long elem_count, long long fft_size) {
     return 11.0f;
@@ -95,6 +95,9 @@ void run_test(void* plan, cufftComplex* d_data, cufftComplex* d_kernel, long lon
         return;
     }
 
+    //static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_nonstrided.execute_padded_fft(d_data, total_elems, stream);
+    //static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_strided.execute_padded_conv(d_data, d_kernel, total_elems, stream);
+    
     static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_nonstrided.execute_padded_fft(d_data, total_elems, stream);
     static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_strided.execute_padded_conv(d_data, d_kernel, total_elems, stream);
     static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_nonstrided.execute_ifft(d_data, total_elems, stream);

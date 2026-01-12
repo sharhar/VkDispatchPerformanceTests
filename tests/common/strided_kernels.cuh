@@ -60,42 +60,49 @@ static inline __device__ void load_strided_padded(const float2* input,
     const unsigned int tidy         = tid % blockDim.y;
     
     constexpr unsigned int signal_len = cufftdx::size_of<FFT>::value / padding_ratio;
+    constexpr unsigned int max_iters = (signal_len + FFT::stride - 1) / FFT::stride;
     const unsigned int batch_offset = tidy + blockIdx.y * FFT::ffts_per_block + blockIdx.x * stride_len * cufftdx::size_of<FFT>::value;
 
     const unsigned int stride       = stride_len * FFT::stride;
     unsigned int       index        = batch_offset + (tidx * stride_len);
     unsigned int       smem_index   = tidx + tidy * blockDim.x;
+    unsigned int padded_smem_index = 0;
 
     #pragma unroll
-    for (unsigned int i = 0; i < FFT::elements_per_thread; i++) {
+    for (unsigned int i = 0; i < max_iters; i++) {
         unsigned int fft_index = i * FFT::stride + tidx;
 
         if (fft_index < signal_len) {
-            shared_memory[smem_index] = input[index];
+            padded_smem_index = smem_index + (smem_index >> SMEM_BITS_PADDING);
+            shared_memory[padded_smem_index] = input[index];
 
             index += stride;
-            smem_index += (blockDim.x * blockDim.y);
-        } else {
-            // Explicitly pad with zero
-            shared_memory[smem_index] = make_float2(0.0f, 0.0f);
             smem_index += (blockDim.x * blockDim.y);
         }
     }
 
     __syncthreads();
-    smem_index = threadIdx.x + threadIdx.y * blockDim.x;
 
     #pragma unroll
     for (unsigned int i = 0; i < FFT::elements_per_thread; i++) {
+        thread_data[i] = float2{0.0f, 0.0f};
+    }
+
+    smem_index = threadIdx.x + threadIdx.y * blockDim.x;
+    #pragma unroll
+    for (unsigned int i = 0; i < max_iters; i++) {
         unsigned int fft_index = i * FFT::stride + threadIdx.x;
 
         if (fft_index < signal_len) {
-            thread_data[i] = shared_memory[smem_index];
-            smem_index += (blockDim.x * blockDim.y);
-        } else if (fft_index < cufftdx::size_of<FFT>::value) {
-            thread_data[i] = float2{0.0f, 0.0f};
+            padded_smem_index = smem_index + (smem_index >> SMEM_BITS_PADDING);
+            thread_data[i] = shared_memory[padded_smem_index];
             smem_index += (blockDim.x * blockDim.y);
         }
+        
+        //else if (fft_index < cufftdx::size_of<FFT>::value) {
+        //    thread_data[i] = float2{0.0f, 0.0f};
+        //    smem_index += (blockDim.x * blockDim.y);
+        //}
     }
 }
 
@@ -236,7 +243,7 @@ __global__ void strided_conv_kernel(cufftComplex* data, const cufftComplex* kern
     
     FFT().execute(thread_data, shared_mem, workspace);
 
-    apply_kernel<FFT, smem_transpose, read_kernel_transposed, false>( (float2*)kernel, (float2*)thread_data, (float2*)shared_mem, inner_fft_count);
+    apply_kernel<FFT, smem_transpose, read_kernel_transposed, true>( (float2*)kernel, (float2*)thread_data, (float2*)shared_mem, inner_fft_count);
 
     IFFT().execute(thread_data, shared_mem, iworkspace);
 
