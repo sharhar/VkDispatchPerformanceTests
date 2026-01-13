@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 from typing import Dict, Tuple, Set
 
 def load_test_data(test_id: str, test_category: str) -> Dict[int, Tuple[float, float]]:
-    filename = f"../test_results_ref2/{test_category}/{test_id}.csv"
+    filename = f"../test_results/{test_category}/{test_id}.csv"
 
     results = {}
     if not os.path.exists(filename):

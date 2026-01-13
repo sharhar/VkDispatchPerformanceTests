@@ -6,7 +6,8 @@ tests = {
     "vkdispatch_naive": ("vkdispatch_naive", "conv_2d"),
     "vkdispatch_transpose": ("vkdispatch_transpose", "conv_2d"),
     "cufft": ("cufft", "conv_2d"),
-    "cufftdx": ("cufftdx", "conv_2d")
+    "cufftdx": ("cufftdx", "conv_2d"),
+    "cufftdx_naive": ("cufftdx_naive", "conv_2d")
 }
 
 test_data = figure_utils.load_tests(tests)
