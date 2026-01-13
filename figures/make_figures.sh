@@ -1,13 +1,5 @@
 #! /bin/bash
 
-cd scaled_convolution
-python3 make_figure.py
-cd ..
-
-cd 2d_convolution
-python3 make_figure.py
-cd ..
-
-cd 2d_padded_convolution
-python3 make_figure.py
-cd ..
+python3 make_fig1.py
+python3 make_fig2.py
+python3 make_fig3.py

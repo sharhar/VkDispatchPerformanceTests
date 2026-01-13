@@ -42,68 +42,111 @@ class TestProperties:
     name: str
     color: str
     marker: str
+    linestyle: str
     y_scaling: bool
 
-# Define properties with the specific 3x scaling for high-performance variants
+# Colorblind-safe palette (Okabe-Ito):
+#   Blue:      #0072B2
+#   Orange:    #E69F00
+#   Sky Blue:  #56B4E9
+#   Vermillion:#D55E00
+#   Teal:      #009E73
+#   Yellow:    #F0E442
+#   Purple:    #CC79A7
+#   Black:     #000000
+#
+# Line styles:
+#   Naive  → '--' (dashed)
+#   Fused  → '-'  (solid)
+#   Ref    → ':'  (dotted)
+#
+# 'o' (circle)
+# 's' (square)
+# '^' (triangle up)
+# 'v' (triangle down)
+# 'D' (diamond)
+# 'p' (pentagon)
+# '*' (star)
+# 'X' (x)
+# 'P' (plus filled)
+# 'h' (hexagon1)
+
 test_properties = {
+    # === VkFFT family ===
     "vkfft": TestProperties(
         name="VkFFT (Fused)",
-        color='purple',
-        marker='v',
+        color='#0072B2',      # blue
+        marker='o',
+        linestyle='-',
         y_scaling=True
     ),
     "vkfft_naive": TestProperties(
         name="VkFFT (Naive)",
-        color='purple',
-        marker='v',
+        color='#56B4E9',      # sky blue
+        marker='s',
+        linestyle='--',
         y_scaling=False
     ),
+
+    # === VkDispatch family ===
     "vkdispatch": TestProperties(
         name="VkDispatch (Fused)",
-        color='blue',
-        marker='o',
+        color='#D55E00',      # vermillion
+        marker='^',
+        linestyle='-',
         y_scaling=True
     ),
     "vkdispatch_transpose": TestProperties(
         name="VkDispatch KT (Fused)",
-        color='cyan',
-        marker='o',
+        color='#F0E442',      # yellow
+        marker='v', 
+        linestyle='-',
         y_scaling=True
     ),
     "vkdispatch_naive": TestProperties(
         name="VkDispatch (Naive)",
-        color='red',
-        marker='s',
+        color='#E69F00',      # orange
+        marker='D',
+        linestyle='--',
         y_scaling=False
     ),
+
+    # === cuFFT family ===
     "cufft": TestProperties(
         name="cuFFT",
-        color='green',
-        marker='^',
+        color='#000000',      # black (reference baseline)
+        marker='p',
+        linestyle=':',
         y_scaling=None
     ),
     "cufft_nvidia": TestProperties(
         name="cuFFT NV (Naive)",
-        color='green',
-        marker='^',
+        color='#009E73',      # teal
+        marker='*',
+        linestyle='--',
         y_scaling=False
-    ),
-    "cufftdx": TestProperties(
-        name="cuFFTDx (Fused)",
-        color='orange',
-        marker='D',
-        y_scaling=True
     ),
     "cufftdx_nvidia": TestProperties(
         name="cuFFTDx NV (Fused)",
-        color='orange',
-        marker='D',
+        color='#009E73',      # teal
+        marker='X',
+        linestyle='-',
+        y_scaling=True
+    ),
+
+    # === cuFFTDx family ===
+    "cufftdx": TestProperties(
+        name="cuFFTDx (Fused)",
+        color='#CC79A7',
+        marker='P',
+        linestyle='-',
         y_scaling=True
     ),
     "cufftdx_naive": TestProperties(
         name="cuFFTDx (Naive)",
-        color='orange',
-        marker='D',
+        color='#CC79A7',
+        marker='h',
+        linestyle='--',
         y_scaling=False
     ),
 }
@@ -117,6 +160,35 @@ def extract_plot_data(data_dict):
     y = np.array([data_dict[k][0] for k in sorted_keys])
     y_err = np.array([data_dict[k][1] for k in sorted_keys])
     return x, y, y_err
+
+def get_legend_sort_key(label: str) -> tuple:
+    """
+    Returns a sort key tuple: (category, name)
+    Category: 0 = Naive, 1 = Reference (cuFFT), 2 = Fused
+    """
+    label_lower = label.lower()
+    
+    if "naive" in label_lower:
+        category = 0
+    elif "cufft" in label_lower and "fused" not in label_lower:
+        # cuFFT reference (not cuFFTDx Fused)
+        category = 1
+    else:
+        # Fused
+        category = 2
+    
+    return (category, label)
+
+
+def sort_legend(ax):
+    """Sorts legend: Naive on top, cuFFT reference middle, Fused below."""
+    handles, labels = ax.get_legend_handles_labels()
+    
+    # Zip, sort, unzip
+    sorted_pairs = sorted(zip(handles, labels), key=lambda x: get_legend_sort_key(x[1]))
+    sorted_handles, sorted_labels = zip(*sorted_pairs) if sorted_pairs else ([], [])
+    
+    return list(sorted_handles), list(sorted_labels)
 
 def plot_data(test_data: Dict[str, Dict[int, Tuple[float, float]]],
               scale_factor: float,
@@ -174,13 +246,21 @@ def plot_data(test_data: Dict[str, Dict[int, Tuple[float, float]]],
             y_plot = y_raw / scale_factor if do_scaling else y_raw
             y_err_plot = y_err_raw / scale_factor if do_scaling else y_err_raw
 
-            ax_main.errorbar(x, y_plot,
-                        yerr=y_err_plot,
+            # ax_main.errorbar(x, y_plot,
+            #             yerr=y_err_plot,
+            #             label=props.name, 
+            #             color=props.color,
+            #             marker=props.marker,
+            #             capsize=3, elinewidth=1, markersize=5,
+            #             linestyle='-', linewidth=1.5, alpha=0.9)
+
+            # Plot without error bars for clarity
+            ax_main.plot(x, y_plot,
                         label=props.name, 
                         color=props.color,
                         marker=props.marker,
-                        capsize=3, elinewidth=1, markersize=5,
-                        linestyle='-', linewidth=1.5, alpha=0.9)
+                        markersize=5,
+                        linestyle=props.linestyle, linewidth=1, alpha=0.9)
 
         ax_main.set_xscale('log', base=2)
         ax_main.set_xlabel('FFT Size (N)')
@@ -198,74 +278,9 @@ def plot_data(test_data: Dict[str, Dict[int, Tuple[float, float]]],
             ax_main.set_xticklabels(sorted_sizes)
 
         ax_main.grid(True, which="both", ls="-", alpha=0.3)
-        ax_main.legend(frameon=True, loc='best')
-
-    plt.tight_layout()
-    plt.savefig(f"{output_name}.pdf", format='pdf', dpi=300)
-    print(f"Graph saved successfully to {output_name}.pdf")
-
-    plt.savefig(f"{output_name}.png", format='png', dpi=300)
-    print(f"Graph saved successfully to {output_name}.png")
-
-def plot_data_legacy(test_data: Dict[str, Dict[int, Tuple[float, float]]],
-              scale_factor: float,
-              output_name: str):
-    plt.style.use('seaborn-v0_8-whitegrid')
-        
-    # Update font sizes for readability in LaTeX
-    plt.rcParams.update({
-        'font.size': 10,
-        'axes.labelsize': 12,
-        'axes.titlesize': 12,
-        'xtick.labelsize': 10,
-        'ytick.labelsize': 10,
-        'legend.fontsize': 10,
-        'figure.figsize': (6, 4) # Standard single-column width
-    })
-
-    fig, ax = plt.subplots()
-    all_sizes = set()
-
-    for test_name in test_data.keys():
-        props = test_properties[test_name]
-        
-        # 1. Load raw data
-        x, y_raw, y_err_raw = extract_plot_data(test_data[test_name])
-        all_sizes.update(x)
-
-        # 2. Normalize data to the primary axis by dividing by the scaling factor
-        #    If scaling is 3.0, a value of 300 becomes 100, aligning it with unscaled data.
-        
-        y_plot = y_raw / scale_factor if props.y_scaling else y_raw
-        y_err_plot = y_err_raw / scale_factor if props.y_scaling else y_err_raw
-
-        ax.errorbar(x, y_plot,
-                    yerr=y_err_plot,
-                    label=props.name, 
-                    color=props.color,
-                    marker=props.marker,
-                    capsize=3, elinewidth=1, markersize=5,
-                    linestyle='-', linewidth=1.5, alpha=0.9)
-
-    ax.set_xscale('log', base=2)
-    ax.set_xlabel('FFT Size (N)')
-    ax.set_ylabel('Naive Bandwidth (GB/s)') 
-
-    ax2 = ax.twinx()
-
-    y_min, y_max = ax.get_ylim()
-    ax2.set_ylim(y_min * scale_factor, y_max * scale_factor)
-    ax2.set_ylabel('Fused Bandwidth (GB/s)')
-
-    ax2.grid(False)
-
-    if all_sizes:
-        sorted_sizes = sorted(list(all_sizes))
-        ax.set_xticks(sorted_sizes)
-        ax.set_xticklabels(sorted_sizes)
-
-    ax.grid(True, which="both", ls="-", alpha=0.3)
-    ax.legend(frameon=True, loc='best')
+        #ax_main.legend(frameon=True, loc='best')
+        handles, labels = sort_legend(ax_main)
+        ax_main.legend(handles, labels, frameon=True, loc='best')
 
     plt.tight_layout()
     plt.savefig(f"{output_name}.pdf", format='pdf', dpi=300)

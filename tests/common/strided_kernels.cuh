@@ -320,6 +320,10 @@ public:
             cudaFuncAttributeMaxDynamicSharedMemorySize, shared_mem_size));
 
         CUDA_CHECK_AND_EXIT(cudaFuncSetAttribute(
+            strided_fft_kernel<IFFT, smem_transpose>,
+            cudaFuncAttributeMaxDynamicSharedMemorySize, shared_mem_size));
+
+        CUDA_CHECK_AND_EXIT(cudaFuncSetAttribute(
             strided_conv_kernel<FFT, IFFT, smem_transpose, read_kernel_transposed>,
             cudaFuncAttributeMaxDynamicSharedMemorySize, shared_mem_size));
 
@@ -335,6 +339,19 @@ public:
         dim3 grid_dims(outer_fft_count, inner_fft_count);
         
         strided_fft_kernel<FFT, smem_transpose><<<grid_dims, block_dim, shared_mem_size, stream>>>(
+            d_data, inner_fft_count, workspace
+        );
+
+        CUDA_CHECK_AND_EXIT(cudaPeekAtLastError());
+    }
+
+    void execute_ifft(cufftComplex* d_data, long long total_elems, cudaStream_t stream) {
+        long long outer_fft_count = total_elems / (FFTSize * FFTSize);
+        long long inner_fft_count = FFTSize / ffts_per_block;
+        
+        dim3 grid_dims(outer_fft_count, inner_fft_count);
+        
+        strided_fft_kernel<IFFT, smem_transpose><<<grid_dims, block_dim, shared_mem_size, stream>>>(
             d_data, inner_fft_count, workspace
         );
 

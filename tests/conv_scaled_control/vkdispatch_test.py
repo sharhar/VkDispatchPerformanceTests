@@ -35,6 +35,5 @@ def test_function_naive(config: Config,
     vd.fft.ifft(buffer)
 
 if __name__ == "__main__":
-    pass
-    #run_test("vkdispatch", 6, test_function)
-    #run_test("vkdispatch_naive", 6, test_function_naive)
+    run_test("vkdispatch", 6, test_function)
+    run_test("vkdispatch_naive", 6, test_function_naive)

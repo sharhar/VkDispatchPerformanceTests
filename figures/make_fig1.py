@@ -5,7 +5,9 @@ tests = {
     "vkdispatch": ("vkdispatch", "conv_scaled_control"),
     "vkdispatch_naive": ("vkdispatch_naive", "conv_scaled_control"),
     "cufft": ("cufft", "conv_scaled_control"),
-    "cufftdx": ("cufftdx", "conv_scaled_control")
+    "cufftdx": ("cufftdx", "conv_scaled_control"),
+    "cufft_nvidia": ("cufft_nvidia", "conv_scaled_nvidia"),
+    "cufftdx_nvidia": ("cufftdx_nvidia", "conv_scaled_nvidia")
 }
 
 
