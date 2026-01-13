@@ -6,11 +6,7 @@
 #include <cufft.h>
 
 float get_bandwith_scale_factor(long long elem_count, long long fft_size) {
-    //double total_elements = static_cast<double>(elem_count);
-    //double fft_elements = static_cast<double>(fft_size * fft_size);
-    //double kernel_scaled_size = fft_elements / total_elements;
-
-    return 11.0f; //10.0f + static_cast<float>(kernel_scaled_size);
+    return 11.0f;
 }
 
 template<int FFTSize, int FFTsInBlock>
@@ -19,9 +15,9 @@ struct FFTConv2DConfig {
     StridedFFTConfig<FFTSize, FFTsInBlock, true, true, 1> fft_strided;
 };
 
-template<int FFTSize, int FFTsInBlock, bool reference_mode>
+template<int FFTSize, int FFTsInBlock, int exec_mode>
 void* init_test(long long data_size, cudaStream_t stream) {
-    if constexpr (reference_mode) {
+    if constexpr (exec_mode == EXEC_MODE_CUFFT) {
         const long long dim2 = FFTSize;
         const long long dim1 = FFTSize;
         const long long dim0 = data_size / (dim1 * dim2);
@@ -67,12 +63,21 @@ __global__ void convolve_arrays(cufftComplex* data, cufftComplex* kernel, long l
     }
 }
 
-template<int FFTSize, int FFTsInBlock, bool reference_mode, bool validate>
+template<int FFTSize, int FFTsInBlock, int exec_mode, bool validate>
 void run_test(void* plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems, cudaStream_t stream){
-    if constexpr (reference_mode) {
+    if constexpr (exec_mode == EXEC_MODE_CUFFT) {
         checkCuFFT(cufftExecC2C(*static_cast<cufftHandle*>(plan), d_data, d_data, CUFFT_FORWARD), "exec");
         convolve_arrays<<<(total_elems+255)/256,256,0,stream>>>(d_data, d_kernel, total_elems, FFTSize);
         checkCuFFT(cufftExecC2C(*static_cast<cufftHandle*>(plan), d_data, d_data, CUFFT_INVERSE), "exec");
+        return;
+    }
+
+    if constexpr (exec_mode == EXEC_MODE_CUFFTDX_NAIVE) {
+        static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_nonstrided.execute_fft(d_data, total_elems, stream);
+        static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_strided.execute_fft(d_data, total_elems, stream);
+        convolve_arrays<<<(total_elems+255)/256,256,0,stream>>>(d_data, d_kernel, total_elems, FFTSize);
+        static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_strided.execute_ifft(d_data, total_elems, stream);
+        static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_nonstrided.execute_ifft(d_data, total_elems, stream);
         return;
     }
     
@@ -82,9 +87,9 @@ void run_test(void* plan, cufftComplex* d_data, cufftComplex* d_kernel, long lon
 }
 
 
-template<int FFTSize, int FFTsInBlock, bool reference_mode>
+template<int FFTSize, int FFTsInBlock, int exec_mode>
 void delete_test(void* plan) {
-    if constexpr (reference_mode) {
+    if constexpr (exec_mode == EXEC_MODE_CUFFT) {
         cufftDestroy(*static_cast<cufftHandle*>(plan));
         delete static_cast<cufftHandle*>(plan);
         return;

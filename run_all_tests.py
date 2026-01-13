@@ -150,7 +150,7 @@ def cufftdx_test(test_name: str, nvcc_dir: str, cuda_arch: int):
                         str(ITER_COUNT),
                         str(BATCH_SIZE),
                         str(REPEATS),
-                        str(2)],
+                        str(0)],
                         cwd=Path(f"tests/{test_name}/test_results").resolve())
     else:
         print(f"Running {test_name} cuFFT test...")
@@ -168,7 +168,15 @@ def cufftdx_test(test_name: str, nvcc_dir: str, cuda_arch: int):
                         str(ITER_COUNT),
                         str(BATCH_SIZE),
                         str(REPEATS),
-                        str(0)],
+                        str(2)],
+                        cwd=Path(f"tests/{test_name}/test_results").resolve())
+        print(f"Running {test_name} cuFFTdx naive test...")
+        run_process([f"./cufftdx_test.exec",
+                        str(DATA_SIZE),
+                        str(ITER_COUNT),
+                        str(BATCH_SIZE),
+                        str(REPEATS),
+                        str(3)],
                         cwd=Path(f"tests/{test_name}/test_results").resolve())
     
     os.remove(f"tests/{test_name}/test_results/cufftdx_test.exec")

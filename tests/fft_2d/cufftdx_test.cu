@@ -15,9 +15,9 @@ struct FFT2DConfig {
     StridedFFTConfig<FFTSize, FFTsInBlock, true, false, 1> fft_strided;
 };
 
-template<int FFTSize, int FFTsInBlock, bool reference_mode>
+template<int FFTSize, int FFTsInBlock, int exec_mode>
 void* init_test(long long data_size, cudaStream_t stream) {
-    if constexpr (reference_mode) {
+    if constexpr (exec_mode == EXEC_MODE_CUFFT) {
         cufftHandle* plan = new cufftHandle();
 
         const long long dim2 = FFTSize;
@@ -49,9 +49,9 @@ void* init_test(long long data_size, cudaStream_t stream) {
     return static_cast<void*>(config);
 }
 
-template<int FFTSize, int FFTsInBlock, bool reference_mode, bool validate>
+template<int FFTSize, int FFTsInBlock, int exec_mode, bool validate>
 void run_test(void* plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems, cudaStream_t stream){
-    if constexpr (reference_mode) {
+    if constexpr (exec_mode == EXEC_MODE_CUFFT) {
         checkCuFFT(cufftExecC2C(*static_cast<cufftHandle*>(plan), d_data, d_data, CUFFT_FORWARD), "exec");
         return;
     }
@@ -60,9 +60,9 @@ void run_test(void* plan, cufftComplex* d_data, cufftComplex* d_kernel, long lon
     static_cast<FFT2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_strided.execute_fft(d_data, total_elems, stream);
 }
 
-template<int FFTSize, int FFTsInBlock, bool reference_mode>
+template<int FFTSize, int FFTsInBlock, int exec_mode>
 void delete_test(void* plan) {
-    if constexpr (reference_mode) {
+    if constexpr (exec_mode == EXEC_MODE_CUFFT) {
         cufftDestroy(*static_cast<cufftHandle*>(plan));
         delete static_cast<cufftHandle*>(plan);
         return;
