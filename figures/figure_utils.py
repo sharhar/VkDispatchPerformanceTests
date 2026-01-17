@@ -75,15 +75,15 @@ test_properties = {
     # === VkFFT family ===
     "vkfft": TestProperties(
         name="VkFFT (Fused)",
-        color='#0072B2',      # blue
-        marker='o',
+        color="#56B4E9",
+        marker='P',
         linestyle='-',
         y_scaling=True
     ),
     "vkfft_naive": TestProperties(
         name="VkFFT (Naive)",
-        color='#56B4E9',      # sky blue
-        marker='s',
+        color='#56B4E9',
+        marker='h',
         linestyle='--',
         y_scaling=False
     ),
@@ -91,22 +91,22 @@ test_properties = {
     # === VkDispatch family ===
     "vkdispatch": TestProperties(
         name="VkDispatch (Fused)",
-        color='#D55E00',      # vermillion
-        marker='^',
+        color='#D55E00',
+        marker='s',
         linestyle='-',
         y_scaling=True
     ),
     "vkdispatch_transpose": TestProperties(
         name="VkDispatch KT (Fused)",
-        color='#F0E442',      # yellow
-        marker='v', 
+        color='#E69F00',
+        marker='D', 
         linestyle='-',
         y_scaling=True
     ),
     "vkdispatch_naive": TestProperties(
         name="VkDispatch (Naive)",
-        color='#E69F00',      # orange
-        marker='D',
+        color='#D55E00',
+        marker='o',
         linestyle='--',
         y_scaling=False
     ),
@@ -121,14 +121,14 @@ test_properties = {
     ),
     "cufft_nvidia": TestProperties(
         name="cuFFT NV (Naive)",
-        color='#009E73',      # teal
+        color='#CC79A7',
         marker='*',
         linestyle='--',
         y_scaling=False
     ),
     "cufftdx_nvidia": TestProperties(
         name="cuFFTDx NV (Fused)",
-        color='#009E73',      # teal
+        color='#CC79A7',
         marker='X',
         linestyle='-',
         y_scaling=True
@@ -137,15 +137,17 @@ test_properties = {
     # === cuFFTDx family ===
     "cufftdx": TestProperties(
         name="cuFFTDx (Fused)",
-        color='#CC79A7',
-        marker='P',
+        #color='#CC79A7',
+        color='#009E73',
+        marker='v',
         linestyle='-',
         y_scaling=True
     ),
     "cufftdx_naive": TestProperties(
         name="cuFFTDx (Naive)",
-        color='#CC79A7',
-        marker='h',
+        #color='#CC79A7',
+        color='#009E73',
+        marker='^',
         linestyle='--',
         y_scaling=False
     ),
@@ -167,15 +169,19 @@ def get_legend_sort_key(label: str) -> tuple:
     Category: 0 = Naive, 1 = Reference (cuFFT), 2 = Fused
     """
     label_lower = label.lower()
-    
-    if "naive" in label_lower:
+
+    if "vkdispatch" in label_lower:
         category = 0
-    elif "cufft" in label_lower and "fused" not in label_lower:
-        # cuFFT reference (not cuFFTDx Fused)
+    elif "cufftdx" in label_lower:
         category = 1
-    else:
-        # Fused
+    elif "cufft" in label_lower and "nv" in label_lower:
         category = 2
+    elif "vkfft" in label_lower:
+        category = 3
+    elif "cufft" == label_lower:
+        category = 4
+
+    print(f"Assigned sort category {category} to label: {label}")
     
     return (category, label)
 
@@ -245,14 +251,6 @@ def plot_data(test_data: Dict[str, Dict[int, Tuple[float, float]]],
 
             y_plot = y_raw / scale_factor if do_scaling else y_raw
             y_err_plot = y_err_raw / scale_factor if do_scaling else y_err_raw
-
-            # ax_main.errorbar(x, y_plot,
-            #             yerr=y_err_plot,
-            #             label=props.name, 
-            #             color=props.color,
-            #             marker=props.marker,
-            #             capsize=3, elinewidth=1, markersize=5,
-            #             linestyle='-', linewidth=1.5, alpha=0.9)
 
             # Plot without error bars for clarity
             ax_main.plot(x, y_plot,
