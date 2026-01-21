@@ -372,16 +372,16 @@ void run_validation_test(const Config& cfg) {
 void run_validation_tests(const Config& cfg) {
     std::cout << "Running validation tests with data size " << cfg.data_size << "\n";
 
-    run_validation_test<8, 256>(cfg);
-    run_validation_test<16, 128>(cfg);
-    run_validation_test<32, 64>(cfg);
-    run_validation_test<64, 32>(cfg);
+    run_validation_test<8, 512>(cfg);
+    run_validation_test<16, 256>(cfg);
+    run_validation_test<32, 128>(cfg);
+    run_validation_test<64, 64>(cfg);
     run_validation_test<128, 32>(cfg);
     run_validation_test<256, 16>(cfg);
-    run_validation_test<512, 16>(cfg);
-    run_validation_test<1024, 8>(cfg);
-    run_validation_test<2048, 4>(cfg);
-    run_validation_test<4096, 2>(cfg);
+    run_validation_test<512, 8>(cfg);
+    run_validation_test<1024, 4>(cfg);
+    run_validation_test<2048, 2>(cfg);
+    run_validation_test<4096, 1>(cfg);
 }
 
 int main(int argc, char** argv) {

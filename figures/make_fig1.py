@@ -17,5 +17,8 @@ test_data = figure_utils.load_tests(tests)
 figure_utils.plot_data(
     test_data=test_data,
     scale_factor=3.0,
-    output_name="fig1_scaled_nonstrided_convolution"
+    output_name="fig1_scaled_nonstrided_convolution",
+    ncol=2,
+    loc='lower left',
+    fontsize=8
 )

@@ -180,8 +180,6 @@ def get_legend_sort_key(label: str) -> tuple:
         category = 3
     elif "cufft" == label_lower:
         category = 4
-
-    print(f"Assigned sort category {category} to label: {label}")
     
     return (category, label)
 
@@ -196,10 +194,56 @@ def sort_legend(ax):
     
     return list(sorted_handles), list(sorted_labels)
 
+def save_plot_data_csv(test_data: Dict[str, Dict[int, Tuple[float, float]]], output_name: str):
+    """
+    Saves the aggregated test data to a CSV file.
+    Rows are aligned by FFT Size. Columns use the human-readable names.
+    """
+    # 1. Collect all unique FFT sizes across all tests
+    all_sizes = set()
+    for data in test_data.values():
+        all_sizes.update(data.keys())
+    sorted_sizes = sorted(list(all_sizes))
+
+    # 2. Prepare headers using human-readable names from test_properties
+    # We sort keys to ensure column order is deterministic
+    sorted_test_keys = sorted(test_data.keys())
+    
+    headers = ['FFT Size']
+    for key in sorted_test_keys:
+        nice_name = test_properties[key].name
+        headers.extend([f"{nice_name} Mean", f"{nice_name} Std"])
+
+    # 3. Write to CSV
+    csv_filename = f"{output_name}.csv"
+    try:
+        with open(csv_filename, mode='w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(headers)
+
+            for size in sorted_sizes:
+                row = [size]
+                for key in sorted_test_keys:
+                    # check if this specific test has data for this FFT size
+                    if size in test_data[key]:
+                        mean, std = test_data[key][size]
+                        row.extend([mean, std])
+                    else:
+                        # Empty strings for missing data points
+                        row.extend(["", ""]) 
+                writer.writerow(row)
+        print(f"Data saved successfully to {csv_filename}")
+    except IOError as e:
+        print(f"Error saving CSV {csv_filename}: {e}")
+
 def plot_data(test_data: Dict[str, Dict[int, Tuple[float, float]]],
               scale_factor: float,
               output_name: str,
-              split_graphs: bool = False):
+              split_graphs: bool = False,
+              ncol: int = 1,
+              loc: str = 'best',
+              fontsize: int = 10,
+              show_squared_x: bool = False):
     plt.style.use('seaborn-v0_8-whitegrid')
         
     plt.rcParams.update({
@@ -273,12 +317,19 @@ def plot_data(test_data: Dict[str, Dict[int, Tuple[float, float]]],
         if all_sizes:
             sorted_sizes = sorted(list(all_sizes))
             ax_main.set_xticks(sorted_sizes)
-            ax_main.set_xticklabels(sorted_sizes)
+            #ax_main.set_xticklabels(sorted_sizes)
+            
+            if show_squared_x:
+                # Formats label as LaTeX math: e.g., "1024^2" appears as 1024²
+                labels = [f"${s}^2$" for s in sorted_sizes]
+                ax_main.set_xticklabels(labels)
+            else:
+                ax_main.set_xticklabels(sorted_sizes)
 
         ax_main.grid(True, which="both", ls="-", alpha=0.3)
         #ax_main.legend(frameon=True, loc='best')
         handles, labels = sort_legend(ax_main)
-        ax_main.legend(handles, labels, frameon=True, loc='best')
+        ax_main.legend(handles, labels, frameon=True, loc=loc, ncol=ncol, fontsize=fontsize)
 
     plt.tight_layout()
     plt.savefig(f"{output_name}.pdf", format='pdf', dpi=300)
@@ -286,3 +337,5 @@ def plot_data(test_data: Dict[str, Dict[int, Tuple[float, float]]],
 
     plt.savefig(f"{output_name}.png", format='png', dpi=300)
     print(f"Graph saved successfully to {output_name}.png")
+
+    save_plot_data_csv(test_data, output_name)

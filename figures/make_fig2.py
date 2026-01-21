@@ -16,5 +16,6 @@ figure_utils.plot_data(
     test_data=test_data,
     scale_factor=11/7,
     output_name="fig2_2d_convolution",
-    split_graphs=True
+    split_graphs=True,
+    show_squared_x=True
 )
