@@ -2,9 +2,10 @@ import figure_utils
 
 tests = {
     "vkfft": ("vkfft", "conv_2d"),
-    "vkdispatch": ("vkdispatch", "conv_2d"),
+    "vkfft_naive": ("vkfft_naive", "conv_2d"),
+    #"vkdispatch": ("vkdispatch", "conv_2d"),
     "vkdispatch_naive": ("vkdispatch_naive", "conv_2d"),
-    "vkdispatch_transpose": ("vkdispatch_transpose", "conv_2d"),
+    "vkdispatch": ("vkdispatch_transpose", "conv_2d"),
     "cufft": ("cufft", "conv_2d"),
     "cufftdx": ("cufftdx", "conv_2d"),
     "cufftdx_naive": ("cufftdx_naive", "conv_2d")
@@ -16,6 +17,6 @@ figure_utils.plot_data(
     test_data=test_data,
     scale_factor=11/7,
     output_name="fig2_2d_convolution",
-    split_graphs=True,
-    show_squared_x=True
+    show_squared_x=True,
+    max_fft_size=512
 )

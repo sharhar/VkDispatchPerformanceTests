@@ -11,14 +11,13 @@ tests = {
     "cufftdx_naive": ("cufftdx_naive", "conv_scaled_control")
 }
 
-
 test_data = figure_utils.load_tests(tests)
 
 figure_utils.plot_data(
     test_data=test_data,
-    scale_factor=3.0,
+    scale_factor=3,
     output_name="fig1_scaled_nonstrided_convolution",
-    ncol=2,
-    loc='lower left',
-    fontsize=8
+    #ncol=2,
+    loc='lower right',
+    split_y_axis=True
 )

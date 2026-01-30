@@ -52,7 +52,7 @@ with open(filename, 'r') as f:
 
 run_str = "".join([f"Run {i+1} (GB/s)," for i in range(max_iter_count)])
 
-fft_sizes = [64, 128, 256, 512, 1024, 2048, 4096]
+fft_sizes = [8, 16, 32, 64, 128, 256, 512, 1024, 2048, 4096]
 
 cufft_header = "Backend,FFT Size," + run_str + "Mean,Std Dev\n"
 cufftdx_header = "Backend,FFT Size," + run_str + "Mean,Std Dev\n"

@@ -236,14 +236,50 @@ def save_plot_data_csv(test_data: Dict[str, Dict[int, Tuple[float, float]]], out
     except IOError as e:
         print(f"Error saving CSV {csv_filename}: {e}")
 
+def save_data_average(test_data: Dict[str, Dict[int, Tuple[float, float]]], scale_factor: float, output_name: str, max_fft_size: int = None) -> Dict[str, float]:
+    """
+    Computes the average effective bandwidth for each test up to max_fft_size.
+    Returns a dictionary mapping test names to their average bandwidth.
+    """
+    averages = []
+    for test_name, data in test_data.items():
+        props = test_properties[test_name]
+        total_bandwidth = 0.0
+        count = 0
+        for size, (mean, _) in data.items():
+            if max_fft_size is None or size <= max_fft_size:
+                total_bandwidth += mean
+                count += 1
+
+        if props.y_scaling:
+            total_bandwidth /= scale_factor
+
+        if props.y_scaling is None and max_fft_size is not None:
+            continue
+        averages.append(total_bandwidth / count)
+
+    final_average = sum(averages) / len(averages) if averages else 0.0
+    
+    out_filename = f"{output_name}.txt"
+
+    try:
+        with open(out_filename, 'w') as f:
+            f.write(f"Average Effective Bandwidth: {final_average:.2f} GB/s\n")
+        print(f"Average bandwidths saved successfully to {out_filename}")
+    except IOError as e:
+        print(f"Error saving averages to {out_filename}: {e}")
+
+    return final_average
+
 def plot_data(test_data: Dict[str, Dict[int, Tuple[float, float]]],
               scale_factor: float,
               output_name: str,
-              split_graphs: bool = False,
+              split_y_axis: bool = False,
               ncol: int = 1,
               loc: str = 'best',
-              fontsize: int = 10,
-              show_squared_x: bool = False):
+              fontsize: int = 8,
+              show_squared_x: bool = False,
+              max_fft_size: int = None):
     plt.style.use('seaborn-v0_8-whitegrid')
         
     plt.rcParams.update({
@@ -253,15 +289,13 @@ def plot_data(test_data: Dict[str, Dict[int, Tuple[float, float]]],
         'xtick.labelsize': 10,
         'ytick.labelsize': 10,
         'legend.fontsize': 10,
-        'figure.figsize': (12, 4) if split_graphs else (6, 4)
+        'figure.figsize': (6, 4)
     })
 
-    if split_graphs:
-        fig, (ax_left, ax_right) = plt.subplots(1, 2)
-        axes_pairs = [(ax_left, 128, "le"), (ax_right, 128, "gt")]
-    else:
-        fig, ax = plt.subplots()
-        axes_pairs = [(ax, None, None)]
+    fig, ax = plt.subplots()
+    axes_pairs = [(ax, None, None)]
+
+    final_average = save_data_average(test_data, max_fft_size=max_fft_size, scale_factor=scale_factor, output_name=output_name)
 
     for ax_main, threshold, mode in axes_pairs:
         all_sizes = set()
@@ -289,9 +323,9 @@ def plot_data(test_data: Dict[str, Dict[int, Tuple[float, float]]],
             # Determine y_scaling behavior
             # None means: scale on left graph, don't scale on right graph
             if props.y_scaling is None:
-                do_scaling = (mode == "le") if split_graphs else False
+                do_scaling = False
             else:
-                do_scaling = props.y_scaling
+                do_scaling = props.y_scaling and split_y_axis
 
             y_plot = y_raw / scale_factor if do_scaling else y_raw
             y_err_plot = y_err_raw / scale_factor if do_scaling else y_err_raw
@@ -306,18 +340,22 @@ def plot_data(test_data: Dict[str, Dict[int, Tuple[float, float]]],
 
         ax_main.set_xscale('log', base=2)
         ax_main.set_xlabel('FFT Size (N)')
-        ax_main.set_ylabel('Naive Bandwidth (GB/s)') 
+        
 
-        ax2 = ax_main.twinx()
-        y_min, y_max = ax_main.get_ylim()
-        ax2.set_ylim(y_min * scale_factor, y_max * scale_factor)
-        ax2.set_ylabel('Fused Bandwidth (GB/s)')
-        ax2.grid(False)
+        if split_y_axis:
+            ax_main.set_ylabel('Naive Effective Bandwidth (GB/s)')
+
+            ax2 = ax_main.twinx()
+            y_min, y_max = ax_main.get_ylim()
+            ax2.set_ylim(y_min * scale_factor, y_max * scale_factor)
+            ax2.set_ylabel('Fused Effective Bandwidth (GB/s)')
+            ax2.grid(False)
+        else:
+            ax_main.set_ylabel('Effective Bandwidth (GB/s)')
 
         if all_sizes:
             sorted_sizes = sorted(list(all_sizes))
             ax_main.set_xticks(sorted_sizes)
-            #ax_main.set_xticklabels(sorted_sizes)
             
             if show_squared_x:
                 # Formats label as LaTeX math: e.g., "1024^2" appears as 1024²
@@ -327,7 +365,6 @@ def plot_data(test_data: Dict[str, Dict[int, Tuple[float, float]]],
                 ax_main.set_xticklabels(sorted_sizes)
 
         ax_main.grid(True, which="both", ls="-", alpha=0.3)
-        #ax_main.legend(frameon=True, loc='best')
         handles, labels = sort_legend(ax_main)
         ax_main.legend(handles, labels, frameon=True, loc=loc, ncol=ncol, fontsize=fontsize)
 

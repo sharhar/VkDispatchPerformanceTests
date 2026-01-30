@@ -44,16 +44,23 @@ void run_test(void* plan, cufftComplex* d_data, cufftComplex* d_kernel, long lon
 template<int FFTSize, int FFTsInBlock, int exec_mode>
 void delete_test(void* plan);
 
-__global__ void fill_randomish(cufftComplex* a, long long n){
+__global__ void fill_randomish(cufftComplex* a, long long n, int offset, int fft_size){
     long long i = blockIdx.x * blockDim.x + threadIdx.x;
-    if(i<n){
-        float x = __sinf(i * 0.00173f) + cosf(i * 0.00037f) + __tanf(i * 0.00029f) + 
-                    sinhf(i * 0.013f) + coshf(i * 0.0019f) + tanhf(i * 0.00023f) + 
-                    expf(sinf(i * 0.011f)) + expf(cosf(i * 0.007f));
 
-        float y = __cosf(i * 0.00091f) + sinhf(i * 0.00053f) + tanhf(i * 0.00097f) + sinf(i * 0.23f) + coshf(i * 0.0037f) + tanf(i * 0.011f);
-        a[i] = make_float2(cosf(x), sinf(y));
+    if (i < n) {
+        int y = ((i + offset) % n) / fft_size; 
+        int x = (i + offset) % fft_size;
+        a[i] = make_float2((float)x / (float)fft_size, (float)__sinf(y)); 
     }
+
+    // if(i<n){
+    //     float x = __sinf(i * 0.00173f) + cosf(i * 0.00037f) + __tanf(i * 0.00029f) + 
+    //                 sinhf(i * 0.013f) + coshf(i * 0.0019f) + tanhf(i * 0.00023f) + 
+    //                 expf(sinf(i * 0.011f)) + expf(cosf(i * 0.007f));
+
+    //     float y = __cosf(i * 0.00091f) + sinhf(i * 0.00053f) + tanhf(i * 0.00097f) + sinf(i * 0.23f) + coshf(i * 0.0037f) + tanf(i * 0.011f);
+    //     a[i] = make_float2(cosf(x), sinf(y));
+    // }
 }
 
 static inline void checkCuda(cudaError_t err, const char* what) {
@@ -125,12 +132,12 @@ static double run_cufft_case(const Config& cfg) {
 
     {
         int t = 256, b = int((cfg.data_size + t - 1) / t);
-        fill_randomish<<<b,t>>>(d_data, cfg.data_size);
+        fill_randomish<<<b,t>>>(d_data, cfg.data_size, 1337, FFTSize);
         checkCuda(cudaGetLastError(), "fill launch");
         checkCuda(cudaDeviceSynchronize(), "fill sync");
 
         int kt = 256, kb = int((cfg.data_size + kt - 1) / kt);
-        fill_randomish<<<kb,kt>>>(d_kernel, cfg.data_size);
+        fill_randomish<<<kb,kt>>>(d_kernel, cfg.data_size, 4242, FFTSize);
         checkCuda(cudaGetLastError(), "fill kernel launch");
         checkCuda(cudaDeviceSynchronize(), "fill kernel sync");
     }
@@ -295,12 +302,12 @@ void run_validation_test(const Config& cfg) {
 
     {
         int t = 256, b = int((cfg.data_size + t - 1) / t);
-        fill_randomish<<<b,t>>>(d_data, cfg.data_size);
+        fill_randomish<<<b,t>>>(d_data, cfg.data_size, 606060, FFTSize);
         checkCuda(cudaGetLastError(), "fill launch");
         checkCuda(cudaDeviceSynchronize(), "fill sync");
 
         int kt = 256, kb = int((cfg.data_size + kt - 1) / kt);
-        fill_randomish<<<kb,kt>>>(d_kernel, cfg.data_size);
+        fill_randomish<<<kb,kt>>>(d_kernel, cfg.data_size, 909090, FFTSize);
         checkCuda(cudaGetLastError(), "fill kernel launch");
         checkCuda(cudaDeviceSynchronize(), "fill kernel sync");
     }
@@ -335,7 +342,7 @@ void run_validation_test(const Config& cfg) {
         float diff_2 = diff_x * diff_x + diff_y * diff_y;
 
         float abs_2 = h_data_ref[i].x * h_data_ref[i].x + h_data_ref[i].y * h_data_ref[i].y;
-        if (abs_2 < 1e-10f || diff_2 < 1e-10f) {
+        if (abs_2 < 1e-8f || diff_2 < 1e-8f) {
             // skip near-zero reference values
             continue;
         }

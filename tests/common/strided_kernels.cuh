@@ -50,7 +50,7 @@ static inline __device__ void load_strided(const float2* input,
     }
 }
 
-template<class FFT, int padding_ratio>
+template<class FFT, int padding_ratio, bool smem_transpose>
 static inline __device__ void load_strided_padded(const float2* input,
                                             float2*          thread_data,
                                             float2*       shared_memory,
@@ -69,24 +69,30 @@ static inline __device__ void load_strided_padded(const float2* input,
     unsigned int padded_smem_index = 0;
 
     #pragma unroll
+    for (unsigned int i = 0; i < FFT::elements_per_thread; i++) {
+        thread_data[i] = float2{0.0f, 0.0f};
+    }
+
+    #pragma unroll
     for (unsigned int i = 0; i < max_iters; i++) {
         unsigned int fft_index = i * FFT::stride + tidx;
 
         if (fft_index < signal_len) {
-            padded_smem_index = smem_index + (smem_index >> SMEM_BITS_PADDING);
-            shared_memory[padded_smem_index] = input[index];
+            if constexpr (smem_transpose) {
+                padded_smem_index = smem_index + (smem_index >> SMEM_BITS_PADDING);
+                shared_memory[padded_smem_index] = input[index];
+                smem_index += (blockDim.x * blockDim.y);
+            } else {
+                thread_data[i] = input[index];
+            }
 
-            index += stride;
-            smem_index += (blockDim.x * blockDim.y);
+            index += stride;            
         }
     }
 
-    __syncthreads();
+    if constexpr (!smem_transpose) return;
 
-    #pragma unroll
-    for (unsigned int i = 0; i < FFT::elements_per_thread; i++) {
-        thread_data[i] = float2{0.0f, 0.0f};
-    }
+    __syncthreads();
 
     smem_index = threadIdx.x + threadIdx.y * blockDim.x;
     #pragma unroll
@@ -98,11 +104,6 @@ static inline __device__ void load_strided_padded(const float2* input,
             thread_data[i] = shared_memory[padded_smem_index];
             smem_index += (blockDim.x * blockDim.y);
         }
-        
-        //else if (fft_index < cufftdx::size_of<FFT>::value) {
-        //    thread_data[i] = float2{0.0f, 0.0f};
-        //    smem_index += (blockDim.x * blockDim.y);
-        //}
     }
 }
 
@@ -159,77 +160,81 @@ __global__ void strided_fft_kernel(cufftComplex* data, unsigned int inner_fft_co
     extern __shared__ __align__(alignof(float4)) cufftComplex shared_mem[];
     unsigned int stride_len = inner_fft_count * FFT::ffts_per_block;
 
-    load_strided<FFT, smem_transpose>(data, thread_data, shared_mem, stride_len);
+    constexpr bool do_transpose = smem_transpose && (FFT::ffts_per_block > 1);
+
+    load_strided<FFT, do_transpose>(data, thread_data, shared_mem, stride_len);
     
     FFT().execute(thread_data, shared_mem, workspace);
 
-    store_strided<FFT, smem_transpose>(thread_data, shared_mem, data, stride_len);
+    store_strided<FFT, do_transpose>(thread_data, shared_mem, data, stride_len);
 }
 
 template<class FFT, bool smem_transpose, bool read_kernel_transposed, bool multi_layer_kernel> 
 __device__ void apply_kernel(float2* kernel, float2* thread_data, float2* shared_mem, unsigned int inner_batch_count) {
-    if constexpr (read_kernel_transposed) {
-        const size_t kernel_stride       = blockDim.x * blockDim.y * gridDim.x * gridDim.y;
-        size_t       kernel_index        = threadIdx.x + blockDim.x * threadIdx.y;
-        kernel_index += (blockIdx.x + gridDim.x * blockIdx.y) * blockDim.x * blockDim.y;
+    //if constexpr (read_kernel_transposed) {
+    
+    const size_t kernel_stride       = blockDim.x * blockDim.y * gridDim.x * gridDim.y;
+    size_t       kernel_index        = threadIdx.x + blockDim.x * threadIdx.y;
+    kernel_index += (blockIdx.x + gridDim.x * blockIdx.y) * blockDim.x * blockDim.y;
 
-        // complex multiplication in the frequency domain
-        for (unsigned int i = 0; i < FFT::elements_per_thread; ++i) {
-            float2 kernel_thread_data;// = kernel[kernel_index];
+    // complex multiplication in the frequency domain
+    for (unsigned int i = 0; i < FFT::elements_per_thread; ++i) {
+        float2 kernel_thread_data = kernel[kernel_index];
 
-            if constexpr (multi_layer_kernel) {
-                kernel_thread_data = kernel[kernel_index];
-            } else {
-                kernel_thread_data = kernel[kernel_index % (cufftdx::size_of<FFT>::value * cufftdx::size_of<FFT>::value)];
-            }
+        //if constexpr (multi_layer_kernel) {
+        //    kernel_thread_data = kernel[kernel_index];
+        //} else {
+        //    kernel_thread_data = kernel[kernel_index % (cufftdx::size_of<FFT>::value * cufftdx::size_of<FFT>::value)];
+        //}
 
-            kernel_index += kernel_stride;
+        kernel_index += kernel_stride;
 
-            float2 a;
-            a.x = thread_data[i].x;
-            a.y = thread_data[i].y;
+        float2 a;
+        a.x = thread_data[i].x;
+        a.y = thread_data[i].y;
 
-            float2 b;
-            b.x = kernel_thread_data.x;
-            b.y = kernel_thread_data.y;
-            
-            float2 c;
-            c.x = a.x * b.x - a.y * b.y;
-            c.y = a.x * b.y + a.y * b.x;
+        float2 b;
+        b.x = kernel_thread_data.x;
+        b.y = kernel_thread_data.y;
+        
+        float2 c;
+        c.x = a.x * b.x - a.y * b.y;
+        c.y = a.x * b.y + a.y * b.x;
 
-            thread_data[i].x = c.x;
-            thread_data[i].y = c.y;
-        }
-    } else {
-        // Local array for thread
-        float2 kernel_thread_data[FFT::storage_size];
-
-        if constexpr (smem_transpose)
-            __syncthreads();
-
-        load_strided<FFT, smem_transpose>(kernel, kernel_thread_data, shared_mem, inner_batch_count * FFT::ffts_per_block);
-
-        if constexpr (smem_transpose)
-            __syncthreads();
-
-        // complex multiplication in the frequency domain
-        for (unsigned int i = 0; i < FFT::elements_per_thread; ++i) {
-            float2 a;
-            a.x = thread_data[i].x;
-            a.y = thread_data[i].y;
-
-            float2 b;
-            b.x = kernel_thread_data[i].x;
-            b.y = kernel_thread_data[i].y;
-            
-            float2 c;
-            c.x = a.x * b.x - a.y * b.y;
-            c.y = a.x * b.y + a.y * b.x;
-
-            thread_data[i].x = c.x;
-            thread_data[i].y = c.y;
-        }
+        thread_data[i].x = c.x;
+        thread_data[i].y = c.y;
     }
+
+    // } else {
+    //     // Local array for thread
+    //     float2 kernel_thread_data[FFT::storage_size];
+
+    //     if constexpr (smem_transpose)
+    //         __syncthreads();
+
+    //     load_strided<FFT, smem_transpose>(kernel, kernel_thread_data, shared_mem, inner_batch_count * FFT::ffts_per_block);
+
+    //     if constexpr (smem_transpose)
+    //         __syncthreads();
+
+    //     // complex multiplication in the frequency domain
+    //     for (unsigned int i = 0; i < FFT::elements_per_thread; ++i) {
+    //         float2 a;
+    //         a.x = thread_data[i].x;
+    //         a.y = thread_data[i].y;
+
+    //         float2 b;
+    //         b.x = kernel_thread_data[i].x;
+    //         b.y = kernel_thread_data[i].y;
+            
+    //         float2 c;
+    //         c.x = a.x * b.x - a.y * b.y;
+    //         c.y = a.x * b.y + a.y * b.x;
+
+    //         thread_data[i].x = c.x;
+    //         thread_data[i].y = c.y;
+    //     }
+    // }
 }
 
 template <class FFT, class IFFT, bool smem_transpose, bool read_kernel_transposed>
@@ -238,16 +243,17 @@ __global__ void strided_conv_kernel(cufftComplex* data, const cufftComplex* kern
     cufftComplex thread_data[FFT::storage_size];
     extern __shared__ __align__(alignof(float4)) cufftComplex shared_mem[];
     unsigned int stride_len = inner_fft_count * FFT::ffts_per_block;
+    constexpr bool do_transpose = smem_transpose && (FFT::ffts_per_block > 1);
 
-    load_strided<FFT, smem_transpose>(data, thread_data, shared_mem, stride_len);
+    load_strided<FFT, do_transpose>(data, thread_data, shared_mem, stride_len);
     
     FFT().execute(thread_data, shared_mem, workspace);
 
-    apply_kernel<FFT, smem_transpose, read_kernel_transposed, true>( (float2*)kernel, (float2*)thread_data, (float2*)shared_mem, inner_fft_count);
+    apply_kernel<FFT, do_transpose, read_kernel_transposed, true>( (float2*)kernel, (float2*)thread_data, (float2*)shared_mem, inner_fft_count);
 
     IFFT().execute(thread_data, shared_mem, iworkspace);
 
-    store_strided<FFT, smem_transpose>(thread_data, shared_mem, data, stride_len);
+    store_strided<FFT, do_transpose>(thread_data, shared_mem, data, stride_len);
 }
 
 template <class FFT, class IFFT, bool smem_transpose, bool read_kernel_transposed, int padding_ratio>
@@ -256,16 +262,17 @@ __global__ void strided_padded_conv_kernel(cufftComplex* data, const cufftComple
     cufftComplex thread_data[FFT::storage_size];
     extern __shared__ __align__(alignof(float4)) cufftComplex shared_mem[];
     unsigned int stride_len = inner_fft_count * FFT::ffts_per_block;
+    constexpr bool do_transpose = smem_transpose && (FFT::ffts_per_block > 1);
 
-    load_strided_padded<FFT, padding_ratio>(data, thread_data, shared_mem, stride_len);
+    load_strided_padded<FFT, padding_ratio, do_transpose>(data, thread_data, shared_mem, stride_len);
     
     FFT().execute(thread_data, shared_mem, workspace);
 
-    apply_kernel<FFT, smem_transpose, read_kernel_transposed, true>( (float2*)kernel, (float2*)thread_data, (float2*)shared_mem, inner_fft_count);
+    apply_kernel<FFT, do_transpose, read_kernel_transposed, true>( (float2*)kernel, (float2*)thread_data, (float2*)shared_mem, inner_fft_count);
 
     IFFT().execute(thread_data, shared_mem, iworkspace);
 
-    store_strided<FFT, smem_transpose>(thread_data, shared_mem, data, stride_len);
+    store_strided<FFT, do_transpose>(thread_data, shared_mem, data, stride_len);
 }
 
 template<int FFTSize, int FFTsInBlock, bool smem_transpose, bool read_kernel_transposed, int padding_ratio>

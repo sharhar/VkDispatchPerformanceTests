@@ -98,7 +98,18 @@ def test_function_naive(config: Config,
     convolve_naive(buffer, kernel)
     vd.fft.ifft2(buffer)
 
+def test_function_naive_vkfft(config: Config,
+                    fft_size: int,
+                    buffer: vd.Buffer,
+                    kernel: vd.Buffer):
+    vd.vkfft.fft2(buffer)
+    convolve_naive(buffer, kernel)
+    vd.vkfft.ifft2(buffer)
+
 if __name__ == "__main__":
     run_test("vkdispatch", 11, test_function)
     run_test("vkdispatch_transpose", 11, test_function_transpose)
     run_test("vkdispatch_naive", 11, test_function_naive)
+    run_test("vkfft_naive", 11, test_function_naive_vkfft)
+
+    

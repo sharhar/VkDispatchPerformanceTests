@@ -7,7 +7,7 @@ __pycache__/
 *.so
 
 *.tex
-
+*.txt
 *.pdf
 
 codebase.txt
