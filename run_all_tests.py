@@ -227,17 +227,28 @@ def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
     # else:
     #     print(f"Skipping {test_name} VKFFT test - vkfft_test.py not found")
 
+    if os.path.isfile(f"tests/{test_name}/accuracy_test.py"):
+        print(f"Running Accuracy {test_name} test...")
+        run_process(['python3', '../accuracy_test.py',
+                 str(DATA_SIZE // 8),
+                 str(ITER_COUNT),
+                 str(BATCH_SIZE),
+                 str(REPEATS)],
+                cwd=Path(f"tests/{test_name}/test_results").resolve())
+    else:
+        print(f"Skipping {test_name} Accuracy test - accuracy_test.py not found")
+
     make_graph.make_graph(test_name, title, xlabel, ylabel)
 
 if __name__ == "__main__":
     fetch_dependencies()
 
-    # run_test(
-    #     test_name="fft_nonstrided",
-    #     title="Nonstrided FFT Performance",
-    #     xlabel="FFT Size",
-    #     ylabel="GB/s (higher is better)"
-    # )
+    run_test(
+        test_name="fft_nonstrided",
+        title="Nonstrided FFT Performance",
+        xlabel="FFT Size",
+        ylabel="GB/s (higher is better)"
+    )
 
     # run_test(
     #     test_name="fft_strided",
@@ -261,23 +272,23 @@ if __name__ == "__main__":
     #         ylabel="ms (lower is better)"
     #     )
 
-    run_test(
-        test_name="conv_scaled_control",
-        title="Control Scaled Convolution Performance",
-        xlabel="Convolution Size (FFT size)", 
-        ylabel="GB/s (higher is better)"
-    )
+    # run_test(
+    #     test_name="conv_scaled_control",
+    #     title="Control Scaled Convolution Performance",
+    #     xlabel="Convolution Size (FFT size)", 
+    #     ylabel="GB/s (higher is better)"
+    # )
 
-    run_test(
-        test_name="conv_2d",
-        title="2D Convolution Performance",
-        xlabel="Convolution Size (FFT size)", 
-        ylabel="GB/s (higher is better)"
-    )
+    # run_test(
+    #     test_name="conv_2d",
+    #     title="2D Convolution Performance",
+    #     xlabel="Convolution Size (FFT size)", 
+    #     ylabel="GB/s (higher is better)"
+    # )
 
-    run_test(
-        test_name="conv_2d_padded",
-        title="2D Padded Convolution Performance",
-        xlabel="Convolution Size (FFT size)", 
-        ylabel="GB/s (higher is better)"
-    )
+    # run_test(
+    #     test_name="conv_2d_padded",
+    #     title="2D Padded Convolution Performance",
+    #     xlabel="Convolution Size (FFT size)", 
+    #     ylabel="GB/s (higher is better)"
+    # )
