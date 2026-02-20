@@ -242,6 +242,7 @@ def save_data_average(test_data: Dict[str, Dict[int, Tuple[float, float]]], scal
     Returns a dictionary mapping test names to their average bandwidth.
     """
     averages = []
+    fused_averages = []
     for test_name, data in test_data.items():
         props = test_properties[test_name]
         total_bandwidth = 0.0
@@ -252,24 +253,30 @@ def save_data_average(test_data: Dict[str, Dict[int, Tuple[float, float]]], scal
                 count += 1
 
         if props.y_scaling:
-            total_bandwidth /= scale_factor
+            fused_averages.append(total_bandwidth / count)
+            continue
+            #total_bandwidth /= scale_factor
 
         if props.y_scaling is None and max_fft_size is not None:
             continue
+
         averages.append(total_bandwidth / count)
 
     final_average = sum(averages) / len(averages) if averages else 0.0
+    final_fused_average = sum(fused_averages) / len(fused_averages) if fused_averages else 0.0
     
     out_filename = f"{output_name}.txt"
 
     try:
         with open(out_filename, 'w') as f:
-            f.write(f"Average Effective Bandwidth: {final_average:.2f} GB/s\n")
+            f.write(f"Average Effective Bandwidth: {final_average:.4f} GB/s\n")
+            f.write(f"Average Fused Effective Bandwidth: {final_fused_average:.4f} GB/s\n")
+            f.write(f"Speed Ratio: {final_fused_average / final_average:.4f}x\n")
         print(f"Average bandwidths saved successfully to {out_filename}")
     except IOError as e:
         print(f"Error saving averages to {out_filename}: {e}")
 
-    return final_average
+    return final_average, fused_averages
 
 def plot_data(test_data: Dict[str, Dict[int, Tuple[float, float]]],
               scale_factor: float,
@@ -295,7 +302,7 @@ def plot_data(test_data: Dict[str, Dict[int, Tuple[float, float]]],
     fig, ax = plt.subplots()
     axes_pairs = [(ax, None, None)]
 
-    final_average = save_data_average(test_data, max_fft_size=max_fft_size, scale_factor=scale_factor, output_name=output_name)
+    final_average, fused_average = save_data_average(test_data, max_fft_size=max_fft_size, scale_factor=scale_factor, output_name=output_name)
 
     for ax_main, threshold, mode in axes_pairs:
         all_sizes = set()

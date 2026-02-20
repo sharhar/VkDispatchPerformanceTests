@@ -53,6 +53,8 @@ def make_fig4():
     data_files = {
         "vkdispatch": root_dir / "test_results" / "fft_nonstrided" / "vkdispatch_accuracy.csv",
         "vkfft": root_dir / "test_results" / "fft_nonstrided" / "vkfft_accuracy.csv",
+        "cufft": root_dir / "test_results" / "fft_nonstrided" / "cufft_accuracy.csv",
+        "cufftdx": root_dir / "test_results" / "fft_nonstrided" / "cufftdx_accuracy.csv",
     }
 
     test_data = {
@@ -77,7 +79,7 @@ def make_fig4():
     fig, (ax_mean, ax_worst) = plt.subplots(2, 1, sharex=True)
 
     all_sizes = set()
-    for test_name in ("vkdispatch", "vkfft"):
+    for test_name in ("vkdispatch", "vkfft", "cufft", "cufftdx"):
         data = test_data.get(test_name)
         if data is None or data["size"].size == 0:
             continue
