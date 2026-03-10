@@ -7,18 +7,9 @@ import subprocess
 import tempfile
 from pathlib import Path
 from typing import Optional
-import importlib
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from common import run_accuracy_test, AccuracyConfig, accuracy_helpers
-
+from accuracy_test_utils import AccuracyConfig, parse_args, get_fft_sizes, compute_metrics, run_accuracy_test, vulkan_enabled, cuda_enabled
 import vkdispatch as vd
 import numpy as np
-
-
-#accuracy_helpers = importlib.import_module("common.run_accuracy_test")
-
 
 def vkdispatch_fft_test_function(config: AccuracyConfig,
                                  fft_size: int,
@@ -199,14 +190,14 @@ def _run_cuda_backend_once(config: AccuracyConfig,
             output_file.unlink()
 
     result_data = np.ascontiguousarray(result_flat.reshape(config.make_shape(fft_size)))
-    return accuracy_helpers._compute_metrics(reference, result_data)
+    return compute_metrics(reference, result_data)
 
 
 def _run_cuda_accuracy_test(output_name: str,
                             backend_name: str,
                             executable: Path):
-    config = accuracy_helpers.parse_args()
-    fft_sizes = accuracy_helpers.get_fft_sizes()
+    config = parse_args()
+    fft_sizes = get_fft_sizes()
 
     with open(f"{output_name}.csv", "w", newline="") as csvfile:
         writer = csv.writer(csvfile)
@@ -268,6 +259,10 @@ def run_cuda_accuracy_tests_if_available():
 
 
 if __name__ == "__main__":
-    run_accuracy_test("vkdispatch_accuracy", "vkdispatch", vkdispatch_fft_test_function)
-    run_accuracy_test("vkfft_accuracy", "vkfft", vkfft_test_function)
-    run_cuda_accuracy_tests_if_available()
+    run_accuracy_test("vkdispatch_accuracy", vkdispatch_fft_test_function)
+    
+    if vulkan_enabled:
+        run_accuracy_test("vkfft_accuracy", vkfft_test_function)
+    
+    if cuda_enabled:
+        run_cuda_accuracy_tests_if_available()

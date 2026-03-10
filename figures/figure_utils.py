@@ -307,7 +307,8 @@ def plot_data(test_data: Dict[str, Dict[int, Tuple[float, float]]],
               loc: str = 'best',
               fontsize: int = 8,
               show_squared_x: bool = False,
-              max_fft_size: int = None):
+              max_fft_size: int = None,
+              log_y: bool = False):
     plt.style.use('seaborn-v0_8-whitegrid')
         
     plt.rcParams.update({
@@ -392,6 +393,9 @@ def plot_data(test_data: Dict[str, Dict[int, Tuple[float, float]]],
             else:
                 ax_main.set_xticklabels(sorted_sizes)
 
+        if log_y:
+            ax_main.set_yscale("log")
+            
         ax_main.grid(True, which="both", ls="-", alpha=0.3)
         handles, labels = sort_legend(ax_main)
         ax_main.legend(handles, labels, frameon=True, loc=loc, ncol=ncol, fontsize=fontsize)

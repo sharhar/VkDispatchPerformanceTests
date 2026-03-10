@@ -29,11 +29,14 @@ class AccuracyConfig:
         imag = rng.standard_normal(shape).astype(np.float32)
         return (real + 1j * imag).astype(np.complex64)
 
+cuda_enabled = sys.argv.count('--cuda') > 0
+opencl_enabled = sys.argv.count('--opencl') > 0
+vulkan_enabled = sys.argv.count('--vulkan') > 0
 
 def parse_args() -> AccuracyConfig:
-    if len(sys.argv) != 5:
-        print(f"Usage: {sys.argv[0]} <data_size> <iter_count> <iter_batch> <run_count>")
-        sys.exit(1)
+    # if len(sys.argv) != 5:
+    #     print(f"Usage: {sys.argv[0]} <data_size> <iter_count> <iter_batch> <run_count>")
+    #     sys.exit(1)
 
     config = AccuracyConfig(
         data_size=int(sys.argv[1]),
@@ -67,7 +70,7 @@ def _from_buffer_layout(data: np.ndarray) -> np.ndarray:
     return float_data.view(np.complex64).reshape(float_data.shape[:-1])
 
 
-def _compute_metrics(reference: np.ndarray, result: np.ndarray):
+def compute_metrics(reference: np.ndarray, result: np.ndarray):
     reference64 = reference.astype(np.complex128, copy=False)
     result64 = result.astype(np.complex128, copy=False)
 
@@ -109,16 +112,16 @@ def run_backend_once(
 
     vd.fft.cache_clear()
 
-    return _compute_metrics(reference, result_data)
+    return compute_metrics(reference, result_data)
 
 
 def run_accuracy_test(output_name: str,
-                      backend_name: str,
                       gpu_function: Callable):
     config = parse_args()
     fft_sizes = get_fft_sizes()
+    backend = vd.get_backend()
 
-    with open(f"{output_name}.csv", 'w', newline='') as csvfile:
+    with open(f"{output_name}_{backend}.csv", 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(
             ['Backend', 'FFT Size']
@@ -146,7 +149,7 @@ def run_accuracy_test(output_name: str,
                 )
 
             writer.writerow(
-                [backend_name, fft_size]
+                [output_name, fft_size]
                 + [f"{value:.6e}" for value in rel_l2_errors]
                 + [
                     f"{np.mean(rel_l2_errors):.6e}",
@@ -156,4 +159,4 @@ def run_accuracy_test(output_name: str,
                 ]
             )
 
-    print(f"Accuracy results saved to {output_name}.csv")
+    print(f"Accuracy results saved to {output_name}_{backend}.csv")

@@ -10,9 +10,9 @@ import atexit
 
 import make_graph
 
-DATA_SIZE=2**27
-ITER_COUNT=200
-BATCH_SIZE=20
+DATA_SIZE=2**26
+ITER_COUNT=100
+BATCH_SIZE=10
 REPEATS=3
 
 child_processes = []
@@ -109,6 +109,7 @@ def fetch_dependencies():
 __cuda_info = None
 cuda_enabled = sys.argv.count('--cuda') > 0
 opencl_enabled = sys.argv.count('--opencl') > 0
+vulkan_enabled = sys.argv.count('--vulkan') > 0
 
 def get_cuda_info():
     global __cuda_info
@@ -223,13 +224,25 @@ def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
     if sys.argv.count('--validate') > 0:
         return
 
-    # print(f"Running VkDispatch Vulkan {test_name} test...")
-    # run_process(['python3', '../vkdispatch_test.py',
-    #          str(DATA_SIZE),
-    #          str(ITER_COUNT),
-    #          str(BATCH_SIZE),
-    #          str(REPEATS)],
-    #         cwd=Path(f"tests/{test_name}/test_results").resolve())
+    if vulkan_enabled:
+        if os.path.isfile(f"tests/{test_name}/vkfft_test.py"):
+            print(f"Running VKFFT {test_name} test...")
+            run_process(['python3', '../vkfft_test.py',
+                    str(DATA_SIZE),
+                    str(ITER_COUNT),
+                    str(BATCH_SIZE),
+                    str(REPEATS)],
+                    cwd=Path(f"tests/{test_name}/test_results").resolve())
+        else:
+            print(f"Skipping {test_name} VKFFT test - vkfft_test.py not found")
+        
+        print(f"Running VkDispatch Vulkan {test_name} test...")
+        run_process(['python3', '../vkdispatch_test.py',
+                str(DATA_SIZE),
+                str(ITER_COUNT),
+                str(BATCH_SIZE),
+                str(REPEATS)],
+                cwd=Path(f"tests/{test_name}/test_results").resolve())
     
     if cuda_enabled:
         print(f"Running VkDispatch CUDA {test_name} test...")
@@ -250,76 +263,97 @@ def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
                 str(REPEATS)],
                 cwd=Path(f"tests/{test_name}/test_results").resolve(),
                 env={"VKDISPATCH_BACKEND": "opencl"})
-    
-    # if os.path.isfile(f"tests/{test_name}/vkfft_test.py"):
-    #     print(f"Running VKFFT {test_name} test...")
-    #     run_process(['python3', '../vkfft_test.py',
-    #              str(DATA_SIZE),
-    #              str(ITER_COUNT),
-    #              str(BATCH_SIZE),
-    #              str(REPEATS)],
-    #             cwd=Path(f"tests/{test_name}/test_results").resolve())
-    # else:
-    #     print(f"Skipping {test_name} VKFFT test - vkfft_test.py not found")
-
-    if os.path.isfile(f"tests/{test_name}/accuracy_test.py"):
-        print(f"Running Accuracy {test_name} test...")
-        run_process(['python3', '../accuracy_test.py',
-                 str(DATA_SIZE // 8),
-                 str(ITER_COUNT),
-                 str(BATCH_SIZE),
-                 str(REPEATS)],
-                cwd=Path(f"tests/{test_name}/test_results").resolve())
-    else:
-        print(f"Skipping {test_name} Accuracy test - accuracy_test.py not found")
 
     make_graph.make_graph(test_name, title, xlabel, ylabel)
+
+def run_accuraccy_test():
+    if not os.path.isdir(f"tests/accuracy/test_results"):
+        os.mkdir(f"tests/accuracy/test_results")
+
+    if vulkan_enabled:
+        print(f"Running vulkan Accuracy test...")
+        run_process(['python3', '../accuracy_test.py',
+                    str(DATA_SIZE),
+                    str(ITER_COUNT),
+                    str(BATCH_SIZE),
+                    str(1),
+                    "--vulkan"],
+                cwd=Path(f"tests/accuracy/test_results").resolve(),
+                env={"VKDISPATCH_BACKEND": "vulkan"})
+    
+    if cuda_enabled:
+        print(f"Running cuda Accuracy test...")
+        run_process(['python3', '../accuracy_test.py',
+                    str(DATA_SIZE),
+                    str(ITER_COUNT),
+                    str(BATCH_SIZE),
+                    str(1),
+                    "--cuda"],
+                cwd=Path(f"tests/accuracy/test_results").resolve(),
+                env={"VKDISPATCH_BACKEND": "cuda"})
+    
+    if opencl_enabled:
+        print(f"Running opencl Accuracy test...")
+        run_process(['python3', '../accuracy_test.py',
+                    str(DATA_SIZE),
+                    str(ITER_COUNT),
+                    str(BATCH_SIZE),
+                    str(1),
+                    "--opencl"],
+                cwd=Path(f"tests/accuracy/test_results").resolve(),
+                env={"VKDISPATCH_BACKEND": "opencl"})
+    
+    make_graph.make_graph("accuracy", "Accuracy", "FFT Size", "Error")
 
 if __name__ == "__main__":
     fetch_dependencies()
 
-    # run_test(
-    #     test_name="fft_nonstrided",
-    #     title="Nonstrided FFT Performance",
-    #     xlabel="FFT Size",
-    #     ylabel="GB/s (higher is better)"
-    # )
+    run_accuraccy_test()
 
-    # run_test(
-    #     test_name="fft_strided",
-    #     title="Strided FFT Performance",
-    #     xlabel="FFT Size",
-    #     ylabel="GB/s (higher is better)"
-    # )
+    exit()
 
-    # run_test(
-    #     test_name="fft_2d",
-    #     title="2D FFT Performance",
-    #     xlabel="FFT Size",
-    #     ylabel="GB/s (higher is better)"
-    # )
+    run_test(
+        test_name="fft_nonstrided",
+        title="Nonstrided FFT Performance",
+        xlabel="FFT Size",
+        ylabel="GB/s (higher is better)"
+    )
 
-    # if cuda_enabled:
-    #     run_nvidia_test(
-    #         test_name="conv_scaled_nvidia",
-    #         title="NVidia Scaled Convolution Performance",
-    #         xlabel="Convolution Size (FFT size)",
-    #         ylabel="ms (lower is better)"
-    #     )
+    run_test(
+        test_name="fft_strided",
+        title="Strided FFT Performance",
+        xlabel="FFT Size",
+        ylabel="GB/s (higher is better)"
+    )
 
-    # run_test(
-    #     test_name="conv_scaled_control",
-    #     title="Control Scaled Convolution Performance",
-    #     xlabel="Convolution Size (FFT size)", 
-    #     ylabel="GB/s (higher is better)"
-    # )
+    run_test(
+        test_name="fft_2d",
+        title="2D FFT Performance",
+        xlabel="FFT Size",
+        ylabel="GB/s (higher is better)"
+    )
 
-    # run_test(
-    #     test_name="conv_2d",
-    #     title="2D Convolution Performance",
-    #     xlabel="Convolution Size (FFT size)", 
-    #     ylabel="GB/s (higher is better)"
-    # )
+    if cuda_enabled:
+        run_nvidia_test(
+            test_name="conv_scaled_nvidia",
+            title="NVidia Scaled Convolution Performance",
+            xlabel="Convolution Size (FFT size)",
+            ylabel="ms (lower is better)"
+        )
+
+    run_test(
+        test_name="conv_scaled_control",
+        title="Control Scaled Convolution Performance",
+        xlabel="Convolution Size (FFT size)", 
+        ylabel="GB/s (higher is better)"
+    )
+
+    run_test(
+        test_name="conv_2d",
+        title="2D Convolution Performance",
+        xlabel="Convolution Size (FFT size)", 
+        ylabel="GB/s (higher is better)"
+    )
 
     run_test(
         test_name="conv_2d_padded",
