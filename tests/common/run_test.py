@@ -94,7 +94,9 @@ def run_test(test_name: str,
     config = parse_args()
     fft_sizes = get_fft_sizes()
 
-    output_name = f"{test_name}.csv"
+    backend_name = vd.get_backend()
+
+    output_name = f"{test_name}_{backend_name}.csv"
     with open(output_name, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile)
         writer.writerow(['Backend', 'FFT Size'] + [f'Run {i + 1} (GB/s)' for i in range(config.run_count)] + ['Mean', 'Std Dev'])
@@ -113,6 +115,6 @@ def run_test(test_name: str,
             rounded_mean = round(np.mean(rates), 4)
             rounded_std = round(np.std(rates), 4)
 
-            writer.writerow([test_name, fft_size] + rounded_data + [rounded_mean, rounded_std])
+            writer.writerow([f"{test_name}_{backend_name}", fft_size] + rounded_data + [rounded_mean, rounded_std])
         
     print(f"Results saved to {output_name}")

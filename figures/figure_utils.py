@@ -46,14 +46,14 @@ class TestProperties:
     y_scaling: bool
 
 # Colorblind-safe palette (Okabe-Ito):
-#   Blue:      #0072B2
-#   Orange:    #E69F00
-#   Sky Blue:  #56B4E9
-#   Vermillion:#D55E00
-#   Teal:      #009E73
-#   Yellow:    #F0E442
-#   Purple:    #CC79A7
-#   Black:     #000000
+#   Blue:      #0072B2 - not used
+#   Orange:    #E69F00 - used for VkDispatch KT
+#   Sky Blue:  #56B4E9 - used for VkFFT
+#   Vermillion:#D55E00 - used for VkDispatch
+#   Teal:      #009E73 - used for cuFFTDx
+#   Yellow:    #F0E442 - not used
+#   Purple:    #CC79A7 - pinkish purple, used for cuFFTDx NV 
+#   Black:     #000000 - CUDA
 #
 # Line styles:
 #   Naive  → '--' (dashed)
@@ -89,24 +89,47 @@ test_properties = {
     ),
 
     # === VkDispatch family ===
-    "vkdispatch": TestProperties(
-        name="VkDispatch (Fused)",
+    "vkdispatch_vulkan": TestProperties(
+        name="VkDispatch VK (Fused)",
         color='#D55E00',
         marker='s',
         linestyle='-',
         y_scaling=True
     ),
-    "vkdispatch_transpose": TestProperties(
-        name="VkDispatch KT (Fused)",
+    "vkdispatch_naive_vulkan": TestProperties(
+        name="VkDispatch VK (Naive)",
+        color='#D55E00',
+        marker='o',
+        linestyle='--',
+        y_scaling=False
+    ),
+
+    "vkdispatch_cuda": TestProperties(
+        name="VkDispatch CU (Fused)",
         color='#E69F00',
-        marker='D', 
+        marker='s', 
         linestyle='-',
         y_scaling=True
     ),
-    "vkdispatch_naive": TestProperties(
-        name="VkDispatch (Naive)",
-        color='#D55E00',
-        marker='o',
+    "vkdispatch_naive_cuda": TestProperties(
+        name="VkDispatch CU (Naive)",
+        color='#E69F00',
+        marker='o', 
+        linestyle='--',
+        y_scaling=False
+    ),
+
+    "vkdispatch_opencl": TestProperties(
+        name="VkDispatch CL (Fused)",
+        color='#0072B2',
+        marker='s', 
+        linestyle='-',
+        y_scaling=True
+    ),
+    "vkdispatch_naive_opencl": TestProperties(
+        name="VkDispatch CL (Naive)",
+        color='#0072B2',
+        marker='o', 
         linestyle='--',
         y_scaling=False
     ),
@@ -137,7 +160,6 @@ test_properties = {
     # === cuFFTDx family ===
     "cufftdx": TestProperties(
         name="cuFFTDx (Fused)",
-        #color='#CC79A7',
         color='#009E73',
         marker='v',
         linestyle='-',
@@ -145,7 +167,6 @@ test_properties = {
     ),
     "cufftdx_naive": TestProperties(
         name="cuFFTDx (Naive)",
-        #color='#CC79A7',
         color='#009E73',
         marker='^',
         linestyle='--',
@@ -302,7 +323,7 @@ def plot_data(test_data: Dict[str, Dict[int, Tuple[float, float]]],
     fig, ax = plt.subplots()
     axes_pairs = [(ax, None, None)]
 
-    final_average, fused_average = save_data_average(test_data, max_fft_size=max_fft_size, scale_factor=scale_factor, output_name=output_name)
+    # final_average, fused_average = save_data_average(test_data, max_fft_size=max_fft_size, scale_factor=scale_factor, output_name=output_name)
 
     for ax_main, threshold, mode in axes_pairs:
         all_sizes = set()

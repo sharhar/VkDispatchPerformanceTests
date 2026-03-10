@@ -11,23 +11,13 @@ def test_function(config: Config,
                     fft_size: int,
                     buffer: vd.Buffer,
                     kernel: vd.Buffer):
-    assert kernel.shape == buffer.shape
-
-    vd.fft.fft(buffer)
-    vd.fft.convolve(buffer, kernel, axis=1)
-    vd.fft.ifft(buffer)
-
-def test_function_transpose(config: Config,
-                    fft_size: int,
-                    buffer: vd.Buffer,
-                    kernel: vd.Buffer):
     assert kernel.size >= vd.fft.get_transposed_size(buffer.shape, axis=1)
     vd.fft.fft(buffer)
     vd.fft.convolve(buffer, kernel, axis=1, transposed_kernel=True)
     vd.fft.ifft(buffer)
 
 @vd.shader("buff.size")
-def convolve_naive(buff: vc.Buff[vc.c64], kernel: vc.Buff[vc.c64], fft_size: vc.Const[vc.u32]):
+def convolve_naive(buff: vc.Buff[vc.c64], kernel: vc.Buff[vc.c64]):
     ind = vc.global_invocation_id().x
     buff[ind] = vc.mult_complex(buff[ind], kernel[ind].conjugate())
 
@@ -36,10 +26,9 @@ def test_function_naive(config: Config,
                     buffer: vd.Buffer,
                     kernel: vd.Buffer):
     vd.fft.fft2(buffer)
-    convolve_naive(buffer, kernel, fft_size)
+    convolve_naive(buffer, kernel)
     vd.fft.ifft2(buffer)
 
 if __name__ == "__main__":
     run_test("vkdispatch", 11, test_function)
-    run_test("vkdispatch_transpose", 11, test_function_transpose)
     run_test("vkdispatch_naive", 11, test_function_naive)

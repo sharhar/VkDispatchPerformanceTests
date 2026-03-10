@@ -10,8 +10,7 @@ import vkdispatch.codegen as vc
 def padded_cross_correlation(
         buffer: vd.Buffer,
         kernel: vd.Buffer,
-        signal_shape: tuple,
-        transposed_kernel: bool):
+        signal_shape: tuple):
 
     trimmed_shape = (
         buffer.shape[0],
@@ -64,7 +63,7 @@ def padded_cross_correlation(
     vd.fft.convolve(
         buffer,
         kernel,
-        transposed_kernel=transposed_kernel,
+        transposed_kernel=True,
         axis=1,
         input_signal_range=(0, signal_shape[1])
     )
@@ -76,40 +75,9 @@ def test_function(config: Config,
                     buffer: vd.Buffer,
                     kernel: vd.Buffer):
     signal_size = fft_size // config.signal_factor
-    padded_cross_correlation(buffer, kernel, (signal_size, signal_size), False)
-
-def test_function_transpose(config: Config,
-                    fft_size: int,
-                    buffer: vd.Buffer,
-                    kernel: vd.Buffer):
-    signal_size = fft_size // config.signal_factor
-    padded_cross_correlation(buffer, kernel, (signal_size, signal_size), True)
-
-@vd.shader("buff.size")
-def convolve_naive(buff: vc.Buff[vc.c64], kernel: vc.Buff[vc.c64]):
-    ind = vc.global_invocation_id().x
-    buff[ind] = vc.mult_complex(buff[ind], kernel[ind].conjugate())
-
-def test_function_naive(config: Config,
-                    fft_size: int,
-                    buffer: vd.Buffer,
-                    kernel: vd.Buffer):
-    vd.fft.fft2(buffer)
-    convolve_naive(buffer, kernel)
-    vd.fft.ifft2(buffer)
-
-def test_function_naive_vkfft(config: Config,
-                    fft_size: int,
-                    buffer: vd.Buffer,
-                    kernel: vd.Buffer):
-    vd.vkfft.fft2(buffer)
-    convolve_naive(buffer, kernel)
-    vd.vkfft.ifft2(buffer)
+    padded_cross_correlation(buffer, kernel, (signal_size, signal_size))
 
 if __name__ == "__main__":
     run_test("vkdispatch", 11, test_function)
-    run_test("vkdispatch_transpose", 11, test_function_transpose)
-    run_test("vkdispatch_naive", 11, test_function_naive)
-    run_test("vkfft_naive", 11, test_function_naive_vkfft)
 
     

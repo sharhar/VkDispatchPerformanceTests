@@ -32,30 +32,44 @@ atexit.register(cleanup_children)
 signal.signal(signal.SIGINT, cleanup_children)
 signal.signal(signal.SIGTERM, cleanup_children)
 
-def run_process(command, capture_stdout=False, cwd=None):
-    """Run a subprocess and track it for cleanup"""
+def run_process(command, capture_stdout=False, cwd=None, env=None):
+    """Run a subprocess and track it for cleanup.
+
+    Args:
+        command: Command list to execute.
+        capture_stdout: Whether to capture stdout/stderr.
+        cwd: Working directory for the subprocess.
+        env: Optional dict of environment variables to add/override.
+    """
+    proc_env = os.environ.copy()
+    if env:
+        proc_env.update(env)
+
     proc = subprocess.Popen(
         command,
         stdout=subprocess.PIPE if capture_stdout else None,
         stderr=subprocess.PIPE if capture_stdout else None,
-        text=True if capture_stdout else None,
+        text=capture_stdout,
         cwd=cwd,
-        start_new_session=True
+        env=proc_env,
+        start_new_session=True,
     )
     child_processes.append(proc)
 
-    return_val = None
+    try:
+        if capture_stdout:
+            return_val = proc.communicate()
+        else:
+            proc.wait()
+            return_val = None
 
-    if capture_stdout:
-        return_val = proc.communicate()
-    else:
-        proc.wait()
-    child_processes.remove(proc)
+        if proc.returncode != 0:
+            raise subprocess.CalledProcessError(proc.returncode, command)
 
-    if proc.returncode != 0:
-        raise subprocess.CalledProcessError(proc.returncode, " ".join(command))
-
-    return return_val
+        return return_val
+    finally:
+        if proc in child_processes:
+            child_processes.remove(proc)
 
 def fetch_dependencies():
     if os.path.isdir('dependencies'):
@@ -94,6 +108,7 @@ def fetch_dependencies():
 
 __cuda_info = None
 cuda_enabled = sys.argv.count('--cuda') > 0
+opencl_enabled = sys.argv.count('--opencl') > 0
 
 def get_cuda_info():
     global __cuda_info
@@ -208,13 +223,33 @@ def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
     if sys.argv.count('--validate') > 0:
         return
 
-    # print(f"Running VkDispatch {test_name} test...")
+    # print(f"Running VkDispatch Vulkan {test_name} test...")
     # run_process(['python3', '../vkdispatch_test.py',
     #          str(DATA_SIZE),
     #          str(ITER_COUNT),
     #          str(BATCH_SIZE),
     #          str(REPEATS)],
     #         cwd=Path(f"tests/{test_name}/test_results").resolve())
+    
+    if cuda_enabled:
+        print(f"Running VkDispatch CUDA {test_name} test...")
+        run_process(['python3', '../vkdispatch_test.py',
+                str(DATA_SIZE),
+                str(ITER_COUNT),
+                str(BATCH_SIZE),
+                str(REPEATS)],
+                cwd=Path(f"tests/{test_name}/test_results").resolve(),
+                env={"VKDISPATCH_BACKEND": "cuda"})
+    
+    if opencl_enabled:
+        print(f"Running VkDispatch OpenCL {test_name} test...")
+        run_process(['python3', '../vkdispatch_test.py',
+                str(DATA_SIZE),
+                str(ITER_COUNT),
+                str(BATCH_SIZE),
+                str(REPEATS)],
+                cwd=Path(f"tests/{test_name}/test_results").resolve(),
+                env={"VKDISPATCH_BACKEND": "opencl"})
     
     # if os.path.isfile(f"tests/{test_name}/vkfft_test.py"):
     #     print(f"Running VKFFT {test_name} test...")
@@ -243,12 +278,12 @@ def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
 if __name__ == "__main__":
     fetch_dependencies()
 
-    run_test(
-        test_name="fft_nonstrided",
-        title="Nonstrided FFT Performance",
-        xlabel="FFT Size",
-        ylabel="GB/s (higher is better)"
-    )
+    # run_test(
+    #     test_name="fft_nonstrided",
+    #     title="Nonstrided FFT Performance",
+    #     xlabel="FFT Size",
+    #     ylabel="GB/s (higher is better)"
+    # )
 
     # run_test(
     #     test_name="fft_strided",
@@ -286,9 +321,9 @@ if __name__ == "__main__":
     #     ylabel="GB/s (higher is better)"
     # )
 
-    # run_test(
-    #     test_name="conv_2d_padded",
-    #     title="2D Padded Convolution Performance",
-    #     xlabel="Convolution Size (FFT size)", 
-    #     ylabel="GB/s (higher is better)"
-    # )
+    run_test(
+        test_name="conv_2d_padded",
+        title="2D Padded Convolution Performance",
+        xlabel="Convolution Size (FFT size)", 
+        ylabel="GB/s (higher is better)"
+    )

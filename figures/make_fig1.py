@@ -1,9 +1,13 @@
 import figure_utils
 
 tests = {
-    "vkfft_naive": ("vkfft", "conv_scaled_control"),
-    "vkdispatch": ("vkdispatch", "conv_scaled_control"),
-    "vkdispatch_naive": ("vkdispatch_naive", "conv_scaled_control"),
+    "vkfft_naive": ("vkfft_vulkan", "conv_scaled_control"),
+    "vkdispatch_vulkan": ("vkdispatch_vulkan", "conv_scaled_control"),
+    "vkdispatch_naive_vulkan": ("vkdispatch_naive_vulkan", "conv_scaled_control"),
+    "vkdispatch_cuda": ("vkdispatch_cuda", "conv_scaled_control"),
+    "vkdispatch_naive_cuda": ("vkdispatch_naive_cuda", "conv_scaled_control"),
+    "vkdispatch_opencl": ("vkdispatch_opencl", "conv_scaled_control"),
+    "vkdispatch_naive_opencl": ("vkdispatch_naive_opencl", "conv_scaled_control"),
     "cufft": ("cufft", "conv_scaled_control"),
     "cufftdx": ("cufftdx", "conv_scaled_control"),
     "cufft_nvidia": ("cufft_nvidia", "conv_scaled_nvidia"),

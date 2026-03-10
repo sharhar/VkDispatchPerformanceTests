@@ -1,10 +1,13 @@
 import figure_utils
 
 tests = {
-    "vkfft_naive": ("vkfft_naive", "conv_2d_padded"),
-    #"vkdispatch": ("vkdispatch", "conv_2d_padded"),
-    "vkdispatch_naive": ("vkdispatch_naive", "conv_2d_padded"),
-    "vkdispatch": ("vkdispatch_transpose", "conv_2d_padded"),
+    "vkfft_naive": ("vkfft_naive_vulkan", "conv_2d"),
+    "vkdispatch_naive_vulkan": ("vkdispatch_naive_vulkan", "conv_2d"),
+    "vkdispatch_vulkan": ("vkdispatch_vulkan", "conv_2d_padded"),
+    "vkdispatch_naive_cuda": ("vkdispatch_naive_cuda", "conv_2d"),
+    "vkdispatch_cuda": ("vkdispatch_cuda", "conv_2d_padded"),
+    "vkdispatch_naive_opencl": ("vkdispatch_naive_opencl", "conv_2d"),
+    "vkdispatch_opencl": ("vkdispatch_opencl", "conv_2d_padded"),
     "cufft": ("cufft", "conv_2d_padded"),
     "cufftdx": ("cufftdx", "conv_2d_padded"),
     "cufftdx_naive": ("cufftdx_naive", "conv_2d_padded")
