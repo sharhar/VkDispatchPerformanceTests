@@ -29,7 +29,28 @@ ITER_COUNT=200
 BATCH_SIZE=20
 REPEATS=3
 
+__cuda_info = None
+cuda_enabled = sys.argv.count('--cuda') > 0
+opencl_enabled = sys.argv.count('--opencl') > 0
+vulkan_enabled = sys.argv.count('--vulkan') > 0
+
+
 child_processes = []
+
+def cleanup_children(signum=None, frame=None):
+    for proc in child_processes:
+        try:
+            if proc.poll() is None:
+                proc.kill()
+        except:
+            pass
+    child_processes.clear()
+    if signum is not None:
+        sys.exit(1)
+
+atexit.register(cleanup_children)
+signal.signal(signal.SIGINT, cleanup_children)
+signal.signal(signal.SIGTERM, cleanup_children)
 
 def adjust_lightness(color, factor):
     """Lighten or darken a given matplotlib color by multiplying its lightness by 'factor'."""
@@ -43,101 +64,69 @@ def adjust_lightness(color, factor):
     r, g, b = colorsys.hls_to_rgb(h, l, s)
     return (r, g, b)
 
+color0 = plt.cm.tab10(0)  # Blue
+color1 = plt.cm.tab10(1)  # Orange
+color2 = plt.cm.tab10(2)  # Green
+color3 = plt.cm.tab10(3)  # Red
+color4 = plt.cm.tab10(4)  # Purple
+color5 = plt.cm.tab10(5)  # Brown
+color6 = plt.cm.tab10(6)  # Pink
+color7 = plt.cm.tab10(7)  # Gray
+color8 = plt.cm.tab10(8)  # Olive
+color9 = plt.cm.tab10(9)  # Cyan
+
+backend_list = [
+    "cufftdx",
+    "cufftdx_naive",
+    "cufft",
+
+    "cufftdx_nvidia",
+    "cufft_nvidia",
+
+    "vkdispatch_vulkan",
+    "vkdispatch_naive_vulkan",
+
+    "vkdispatch_cuda",
+    "vkdispatch_naive_cuda",
+
+    "vkdispatch_opencl",
+    "vkdispatch_naive_opencl",
+
+    "vkfft_vulkan",
+    "vkfft_naive_vulkan",
+]
+
+color_dict = {
+    "cufftdx": adjust_lightness(color2, 1.4),
+    "cufftdx_naive": adjust_lightness(color2, 1.2),
+    "cufft": adjust_lightness(color2, 0.8),
+
+    "cufftdx_nvidia": adjust_lightness(color6, 1.2),
+    "cufft_nvidia": adjust_lightness(color6, 0.8),
+
+    "vkdispatch_vulkan": adjust_lightness(color3, 1.2),
+    "vkdispatch_naive_vulkan": adjust_lightness(color3, 0.8),
+
+    "vkdispatch_cuda": adjust_lightness(color8, 1.2),
+    "vkdispatch_naive_cuda": adjust_lightness(color8, 0.8),
+
+    "vkdispatch_opencl": adjust_lightness(color0, 1.2),
+    "vkdispatch_naive_opencl": adjust_lightness(color0, 0.8),
+
+    "vkfft_vulkan": adjust_lightness(color9, 1.2),
+    "vkfft_naive_vulkan": adjust_lightness(color9, 0.8)
+}
+
 def get_backend_color(backend_name: str) -> Tuple[float, float, float]:
-    color_base_nvidia = plt.cm.tab10(2)  # Green
-    color_base_vulkan = plt.cm.tab10(3)  # Red
-    color_base_torch = plt.cm.tab10(0)   # Blue
-    color_base_zipfft = plt.cm.tab10(1)  # Orange
+    return color_dict.get(backend_name, (0.5, 0.5, 0.5))  # Default to gray if unknown
 
-    if backend_name == "cufft":
-        return adjust_lightness(color_base_nvidia, 0.8)
-    elif backend_name == "cufftdx":
-        return adjust_lightness(color_base_nvidia, 1.4)
-    elif backend_name == "cufftdx_naive":
-        return adjust_lightness(color_base_nvidia, 1.2)
-    
-    elif backend_name == "cufft_nvidia":
-        return adjust_lightness(color_base_nvidia, 0.8)
-    elif backend_name == "cufftdx_nvidia":
-        return adjust_lightness(color_base_nvidia, 1.4)
-    
-    elif backend_name == "vkdispatch":
-        return adjust_lightness(color_base_vulkan, 0.8)
-    elif backend_name == "vkdispatch_transpose":
-        return adjust_lightness(color_base_vulkan, 1.1)
-    elif backend_name == "vkdispatch_naive":
-        return adjust_lightness(color_base_vulkan, 0.6)
-    elif backend_name == "vkfft":
-        return adjust_lightness(color_base_vulkan, 1.4)
-    elif backend_name == "vkfft_naive":
-        return adjust_lightness(color_base_vulkan, 1.2)
-    elif backend_name == "vulkan":
-        return adjust_lightness(color_base_vulkan, 1.0)
-    
-    elif backend_name == "torch":
-        return adjust_lightness(color_base_torch, 0.8)
-    
-    elif backend_name == "zipfft":
-        return adjust_lightness(color_base_zipfft, 1.6)
-    elif backend_name == "zipfft_smem":
-        return adjust_lightness(color_base_zipfft, 1.2)
-    
-    elif backend_name == "zipfft_transpose":
-        return adjust_lightness(color_base_zipfft, 0.8)
-    elif backend_name == "zipfft_transpose_smem":
-        return adjust_lightness(color_base_zipfft, 0.6)
-    elif backend_name == "zipfft_naive":
-        return adjust_lightness(color_base_zipfft, 1.4)
-
-    else:
-        raise ValueError(f"Unknown backend name: {backend_name}")
 
 def sort_backend(backends: Set[str]) -> List[str]:
     sorted_list = []
     
-    if "vkdispatch" in backends:
-        sorted_list.append("vkdispatch")
-    if "vkdispatch_transpose" in backends:
-        sorted_list.append("vkdispatch_transpose")
-    if "vkdispatch_naive" in backends:
-        sorted_list.append("vkdispatch_naive")
-    if "vkfft" in backends:
-        sorted_list.append("vkfft")
-    if "vkfft_naive" in backends:
-        sorted_list.append("vkfft_naive")
-    if "vulkan" in backends:
-        sorted_list.append("vulkan")
-
-    if "cufft" in backends:
-        sorted_list.append("cufft")
-    if "cufftdx" in backends:
-        sorted_list.append("cufftdx")
-    if "cuda" in backends:
-        sorted_list.append("cuda")
-
-    if "cufftdx_naive" in backends:
-        sorted_list.append("cufftdx_naive")
-
-    if "cufft_nvidia" in backends:
-        sorted_list.append("cufft_nvidia")
-    if "cufftdx_nvidia" in backends:
-        sorted_list.append("cufftdx_nvidia")
-
-    if "torch" in backends:
-        sorted_list.append("torch")
-    if "zipfft" in backends:
-        sorted_list.append("zipfft")
-
-    if "zipfft_smem" in backends:
-        sorted_list.append("zipfft_smem")
-
-    if "zipfft_transpose" in backends:
-        sorted_list.append("zipfft_transpose")
-
-    if "zipfft_transpose_smem" in backends:
-        sorted_list.append("zipfft_transpose_smem")
-    if "zipfft_naive" in backends:
-        sorted_list.append("zipfft_naive")
+    for backend in backend_list:
+        if backend in backends:
+            sorted_list.append(backend)
 
     return sorted_list
 
@@ -150,10 +139,6 @@ def read_bench_csvs(pattern) -> Tuple[MergedType, Set[str], Set[int]]:
 
     for filename in files:
         print(f'Reading: {filename}')
-
-        if filename.endswith("merged.csv"):
-            print('  Skipping merged.csv file')
-            continue
 
         with open(filename, newline='') as f:
             reader = csv.DictReader(f)
@@ -173,50 +158,6 @@ def read_bench_csvs(pattern) -> Tuple[MergedType, Set[str], Set[int]]:
                 merged[backend][size] = (mean, std)
 
     return merged, backends, fft_sizes
-
-def save_bar_graph(backends: List[str],
-                           fft_sizes: List[int],
-                           merged: MergedType,
-                           outfile: str,
-                           title: str,
-                           xlabel: str,
-                           ylabel: str,):
-    # Choose the sizes to display
-    used_fft_sizes = sorted(fft_sizes)
-
-    x = np.arange(len(used_fft_sizes), dtype=float)
-    n_backends = max(1, len(backends))
-    width = 0.8 / n_backends  # total group width ~0.8
-
-    plt.figure(figsize=(12, 6))
-
-    for j, backend in enumerate(backends):
-        # Center bars around tick: offsets in [-0.5..+0.5]*group_width
-        xj = x + (j - (n_backends - 1) / 2) * width
-
-        xs, heights, errs = [], [], []
-        for i, size in enumerate(used_fft_sizes):
-            entry = merged.get(backend, {}).get(size)
-            if entry is None:
-                # Skip if this backend didn't report this size
-                continue
-            mean, std = entry
-            xs.append(xj[i])
-            heights.append(mean)
-            errs.append(std)
-
-        if xs:
-            plt.bar(xs, heights, width=width, yerr=errs, capsize=4, label=backend)
-
-    plt.xticks(x, [str(s) for s in used_fft_sizes])
-    plt.xlabel(xlabel)
-    plt.ylabel(ylabel)
-    plt.title(title)
-    plt.grid(True, axis='y', linestyle='--', alpha=0.4)
-    plt.legend()
-    plt.tight_layout()
-    plt.savefig(outfile)
-    print(f'Saved {outfile}')
 
 def save_line_graph(
         backends: Set[str],
@@ -272,23 +213,6 @@ def copy_files(src_dir: str, dst_dir: str, extensions: List[str] = None):
             shutil.copy2(src_file, dst_file)
             print(f'Copied: {src_file} -> {dst_file}')
 
-def save_merged_csv(merged: MergedType, backends: Set[str], fft_sizes: Set[int], outfile: str):
-    with open(outfile, "w", newline="") as f:
-        fieldnames = ["Backend", "FFT Size", "Mean", "Std Dev"]
-        writer = csv.DictWriter(f, fieldnames=fieldnames)
-        writer.writeheader()
-
-        for backend_name in backends:
-            for size in fft_sizes:
-                if size in merged[backend_name]:
-                    mean, std = merged[backend_name][size]
-                    writer.writerow({
-                        "Backend": backend_name,
-                        "FFT Size": size,
-                        "Mean": mean,
-                        "Std Dev": std,
-                    })
-
 def make_graph(test_name: str, title: str, xlabel: str, ylabel: str):
     src_dir = os.path.join("tests", test_name, "test_results")
     out_dir = os.path.join("test_results", test_name)
@@ -305,9 +229,6 @@ def make_graph(test_name: str, title: str, xlabel: str, ylabel: str):
     sorted_backends = sorted(backends)
     sorted_fft_sizes = sorted(fft_sizes)
 
-    merged_filename = os.path.join(out_dir, "merged.csv")
-    save_merged_csv(merged, sorted_backends, sorted_fft_sizes, merged_filename)
-
     graph_filename = os.path.join(out_dir, "graph.png")
     save_line_graph(
         sorted_backends,
@@ -323,22 +244,6 @@ def make_graph(test_name: str, title: str, xlabel: str, ylabel: str):
 
     shutil.copy2(graph_filename, dst_graph)
     print(f'Copied: {graph_filename} -> {dst_graph}')
-
-
-def cleanup_children(signum=None, frame=None):
-    for proc in child_processes:
-        try:
-            if proc.poll() is None:
-                proc.kill()
-        except:
-            pass
-    child_processes.clear()
-    if signum is not None:
-        sys.exit(1)
-
-atexit.register(cleanup_children)
-signal.signal(signal.SIGINT, cleanup_children)
-signal.signal(signal.SIGTERM, cleanup_children)
 
 def run_process(command, capture_stdout=False, cwd=None, env=None):
     """Run a subprocess and track it for cleanup.
@@ -414,11 +319,6 @@ def fetch_dependencies():
     os.chdir('..')
     os.chdir('..')
 
-__cuda_info = None
-cuda_enabled = sys.argv.count('--cuda') > 0
-opencl_enabled = sys.argv.count('--opencl') > 0
-vulkan_enabled = sys.argv.count('--vulkan') > 0
-
 def get_cuda_info():
     global __cuda_info
 
@@ -432,8 +332,48 @@ def get_cuda_info():
     if cuda_home_dir is not None:
         nvcc_dir = os.path.join(cuda_home_dir, "bin", "nvcc")
 
+    arch_code_program = """
+/*
+
+Simple CUDA program that prionts to stdout the compute capability of a given GPU
+as two digits, e.g., "86" for compute capability 8.6.
+
+*/
+#include <cstdio>
+#include <cstdlib>
+#include <cuda_runtime.h>
+
+int main(int argc, char** argv) {
+    int dev = (argc > 1) ? std::atoi(argv[1]) : 0;
+
+    int count = 0;
+    cudaError_t e = cudaGetDeviceCount(&count);
+    if (e != cudaSuccess || count == 0) {
+        std::fprintf(stderr, "No CUDA devices found: %s\\n", cudaGetErrorString(e));
+        return 1;
+    }
+    if (dev < 0 || dev >= count) {
+        std::fprintf(stderr, "Invalid device index %d (0..%d)\\n", dev, count - 1);
+        return 1;
+    }
+
+    cudaDeviceProp prop{};
+    e = cudaGetDeviceProperties(&prop, dev);
+    if (e != cudaSuccess) {
+        std::fprintf(stderr, "cudaGetDeviceProperties failed: %s\\n", cudaGetErrorString(e));
+        return 1;
+    }
+
+    std::printf("%d%d\\n", prop.major, prop.minor); // e.g., 86
+    return 0;
+}
+"""
+
+    with open("arch_code.cu", "w") as f:
+        f.write(arch_code_program)
+
     # Run the program and capture its stdout as a string
-    run_process([nvcc_dir, 'arch_code.cu', '-o', 'arch_code.exec'])
+    run_process([nvcc_dir, 'arch_code.cu', '-o', 'arch_code.exec', "-Wno-deprecated-gpu-targets"])
 
     # Run the program and capture its stdout as a string
     result = run_process(
@@ -441,7 +381,15 @@ def get_cuda_info():
         capture_stdout=True
     )
 
+    # Delete the executable and source file
+    os.remove('arch_code.cu')
+    os.remove('arch_code.exec')
+
     __cuda_info = (nvcc_dir, int(result[0].strip()))
+
+    print(f"Detected CUDA architecture: {__cuda_info[1]} (nvcc path: {__cuda_info[0]})")
+
+    exit()
 
     return __cuda_info
 
@@ -612,6 +560,8 @@ def run_accuraccy_test():
     make_graph.make_graph("accuracy", "Accuracy", "FFT Size", "Error")
 
 if __name__ == "__main__":
+    get_cuda_info()
+
     fetch_dependencies()
 
     run_accuraccy_test()
