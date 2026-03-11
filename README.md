@@ -1,18 +1,18 @@
 # VkDispatchPerformanceTests
 
-This repository contains benchmark and accuracy tests for `vkdispatch`, plus scripts for turning benchmark outputs into publication-style figures. The primary user-facing entrypoint for running benchmarks is `run_all_tests.py`. Figure generation is handled separately from the checked-in data under `figures/`.
+This repository contains benchmark and accuracy tests for `vkdispatch`, plus scripts for turning benchmark outputs into publication-style figures. It is intended to evaluate `vkdispatch` itself for paper-quality comparisons and repeatable measurements.
 
-The repository already includes generated outputs under `test_results/` and `figures/`, so you can inspect the current data and remake the figures without rerunning the benchmarks.
+The primary user-facing entrypoint for running benchmarks is `run_all_tests.py`. Figure generation is handled separately by the scripts under `figures/`.
 
 ## Repository layout
 
 - `run_all_tests.py`: main benchmark and accuracy runner
 - `tests/`: per-suite source code and raw per-run output directories
-- `test_results/`: consolidated benchmark and accuracy CSVs plus quick-look graphs
-- `figures/`: scripts for final figure generation and the rendered figure assets
-- `dependencies/`: downloaded third-party CUDA dependencies created by the test scripts on first run
+- `figures/`: scripts for final figure generation
+- `test_results/`: created when benchmarks are run; holds consolidated benchmark and accuracy CSVs plus quick-look graphs
+- `dependencies/`: created when the test scripts run; holds downloaded third-party CUDA dependencies
 
-`make_graph.py` exists in the repository, but it is an internal helper called from `run_all_tests.py`. It is not intended to be used as a standalone user entrypoint.
+In a fresh public clone, `dependencies/`, `test_results/`, generated CSVs, generated PNGs, and generated PDFs are not present. They are gitignored and created locally when you run the code.
 
 ## Prerequisites
 
@@ -30,17 +30,30 @@ Required Python packages:
 - `numpy`
 - `matplotlib`
 
+Install `vkdispatch` from PyPI:
+
+```bash
+pip install vkdispatch
+```
+
+On mainstream platforms, `pip install vkdispatch` will install the Python package together with a precompiled native Vulkan backend. If no compatible precompiled wheel is available for your platform, `pip` falls back to building from source, which requires a C++17 compiler. Additional vkdispatch build instructions are available in the vkdispatch docs: [Building From Source](https://sharhar.github.io/vkdispatch/tutorials/building_from_source.html).
+
 Backend-specific requirements:
 
 - Vulkan benchmarks require a working Vulkan runtime and driver stack
-- OpenCL benchmarks require a working OpenCL runtime and driver stack
-- CUDA benchmarks require a CUDA toolkit installation with `nvcc`
+- OpenCL benchmarks require `pyopencl` plus a working OpenCL runtime and driver stack
+- CUDA `vkdispatch` benchmarks require NVIDIA's `cuda-python` package
+- CUDA benchmark helper binaries and cuFFT/cuFFTDx comparisons require a CUDA toolkit installation with `nvcc`
 - `run_all_tests.py` checks `CUDA_HOME/bin/nvcc` first if `CUDA_HOME` is set, otherwise it uses `nvcc` from `PATH`
 
-Platform notes:
+Backend package installation examples:
 
-- cuFFT/cuFFTDx compilation is skipped on macOS by the current scripts
-- CUDA accuracy helpers and cuFFTDx benchmarks rely on downloaded NVIDIA dependencies in `dependencies/`
+```bash
+pip install pyopencl
+pip install cuda-python
+```
+
+CUDA accuracy helpers and cuFFTDx benchmarks rely on downloaded NVIDIA dependencies in `dependencies/`.
 
 ## Running the tests
 
@@ -85,8 +98,10 @@ Notes about first-time setup:
 - On the first run, `run_all_tests.py` creates `dependencies/` and downloads:
   - NVIDIA MathDx (`nvidia-mathdx-25.06.1-cuda12.tar.gz`)
   - `cutlass` pinned to commit `e6e2cc29f5e7611dfc6af0ed6409209df0068cf2`
-- The NVIDIA convolution helper under `tests/conv_scaled_nvidia/` also expects `dependencies/CUDALibrarySamples` on a fresh setup
+- The NVIDIA convolution helper under `tests/conv_scaled_nvidia/` also creates and uses `dependencies/CUDALibrarySamples`, pinned to commit `a94482ebecf8b16d5b83ab276b7db3a84979f0e5`
+- These pinned dependency revisions are used to improve repeatability for paper results
 - Raw benchmark outputs are first written into `tests/<suite>/test_results/`, then copied and merged into the top-level `test_results/` tree
+- `test_results/` is created locally when the benchmarks run; it does not exist in the public repository until you generate results
 
 ## Making the figures
 
@@ -95,11 +110,8 @@ The final figures are generated from the consolidated root-level data under `tes
 Run:
 
 ```bash
-cd figures
 bash make_figures.sh
 ```
-
-This working directory matters. The figure scripts load data using paths like `../test_results/...`, so they must be run from inside `figures/`.
 
 Figure outputs:
 
@@ -107,7 +119,7 @@ Figure outputs:
 - `figures/*.png`
 - `figures/*.csv`
 
-The checked-in `test_results/` directory is enough to regenerate the figures. You do not need to rerun the benchmarks if you only want to remake `fig1` through `fig4`.
+These files are generated locally and are gitignored in the public repository. In a fresh clone, you must run the benchmarks first so that `test_results/` exists before generating `fig1` through `fig4`.
 
 ## Data layout
 
@@ -138,6 +150,8 @@ It also writes top-level quick-look graphs such as:
 - `test_results/conv_scaled_control_graph.png`
 - `test_results/accuracy_graph.png`
 
+`test_results/` is created on demand by the benchmark scripts and is not included in the public repo.
+
 ### 3. Final figure assets
 
 The scripts under `figures/` read from `../test_results/...` and write final publication-style assets into:
@@ -146,11 +160,13 @@ The scripts under `figures/` read from `../test_results/...` and write final pub
 - `figures/*.png`
 - `figures/*.csv`
 
+These figure outputs are also generated locally and are not included in the public repo.
+
 ## CSV formats
 
 ### Benchmark backend CSVs
 
-Examples:
+Example generated paths:
 
 - `test_results/conv_scaled_control/vkdispatch_vulkan.csv`
 - `test_results/conv_scaled_nvidia/cufftdx_nvidia.csv`
@@ -171,7 +187,7 @@ Meaning:
 
 ### Suite merged CSVs
 
-Examples:
+Example generated paths:
 
 - `test_results/conv_scaled_control/merged.csv`
 - `test_results/accuracy/merged.csv`
@@ -186,7 +202,7 @@ These files collapse the per-backend CSVs into one table per suite for plotting 
 
 ### Accuracy CSVs
 
-Examples:
+Example generated paths:
 
 - `test_results/accuracy/vkdispatch_accuracy_vulkan.csv`
 - `test_results/accuracy/cufft_accuracy.csv`
@@ -207,7 +223,7 @@ Meaning:
 
 ### Figure export CSVs
 
-Examples:
+Example generated paths:
 
 - `figures/fig1_scaled_nonstrided_convolution.csv`
 - `figures/fig4_accuracy.csv`
@@ -220,18 +236,22 @@ FFT Size,<Series 1> Mean,<Series 1> Std,<Series 2> Mean,<Series 2> Std,...
 
 These are figure-ready tables written by `figures/figure_utils.py`. Each row is one FFT size, and each plotted series contributes a `Mean` and `Std` column pair.
 
-## Existing data in the repository
+## Generated artifacts and gitignore
 
-The repository already includes checked-in generated data, including:
+The public repository intentionally does not include generated benchmark data or rendered figures. The root `.gitignore` excludes:
 
-- consolidated suite outputs under `test_results/`
-- final figure assets under `figures/`
+- `dependencies/`
+- `*.csv`
+- `*.png`
+- `*.pdf`
 
-That means you can:
+As a result:
 
-- inspect existing benchmark results directly from `test_results/`
-- inspect existing figure-ready tables directly from `figures/*.csv`
-- regenerate the figures from checked-in data without rerunning the benchmarks
+- `dependencies/` appears only after the scripts download third-party code
+- `test_results/` appears only after benchmarks or accuracy runs complete
+- rendered figure files under `figures/` appear only after `bash make_figures.sh`
+
+If you want figures, you need to generate the data first and then run the figure scripts.
 
 ## Cleaning generated outputs
 
