@@ -85,15 +85,19 @@ backend_list = [
 
     "vkdispatch_vulkan",
     "vkdispatch_naive_vulkan",
+    "vkdispatch_accuracy_vulkan",
 
     "vkdispatch_cuda",
     "vkdispatch_naive_cuda",
+    "vkdispatch_accuracy_cuda",
 
     "vkdispatch_opencl",
     "vkdispatch_naive_opencl",
+    "vkdispatch_accuracy_opencl",
 
     "vkfft_vulkan",
     "vkfft_naive_vulkan",
+    "vkfft_accuracy_vulkan",
 ]
 
 color_dict = {
@@ -106,15 +110,19 @@ color_dict = {
 
     "vkdispatch_vulkan": adjust_lightness(color3, 1.2),
     "vkdispatch_naive_vulkan": adjust_lightness(color3, 0.8),
+    "vkdispatch_accuracy_vulkan": adjust_lightness(color3, 0.8),
 
     "vkdispatch_cuda": adjust_lightness(color8, 1.2),
     "vkdispatch_naive_cuda": adjust_lightness(color8, 0.8),
+    "vkdispatch_accuracy_cuda": adjust_lightness(color8, 0.8),
 
     "vkdispatch_opencl": adjust_lightness(color0, 1.2),
     "vkdispatch_naive_opencl": adjust_lightness(color0, 0.8),
+    "vkdispatch_accuracy_opencl": adjust_lightness(color0, 0.8),
 
     "vkfft_vulkan": adjust_lightness(color9, 1.2),
-    "vkfft_naive_vulkan": adjust_lightness(color9, 0.8)
+    "vkfft_naive_vulkan": adjust_lightness(color9, 0.8),
+    "vkfft_accuracy_vulkan": adjust_lightness(color9, 0.8),
 }
 
 def get_backend_color(backend_name: str) -> Tuple[float, float, float]:
@@ -387,10 +395,6 @@ int main(int argc, char** argv) {
 
     __cuda_info = (nvcc_dir, int(result[0].strip()))
 
-    print(f"Detected CUDA architecture: {__cuda_info[1]} (nvcc path: {__cuda_info[0]})")
-
-    exit()
-
     return __cuda_info
 
 def cufftdx_test(test_name: str, nvcc_dir: str, cuda_arch: int):
@@ -465,10 +469,10 @@ def run_nvidia_test(test_name: str, title: str, xlabel: str, ylabel: str):
 
 def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
     print(f"Running {test_name} test...")
-    
+
     if not os.path.isdir(f"tests/{test_name}/test_results"):
         os.mkdir(f"tests/{test_name}/test_results")
-
+        
     if cuda_enabled or sys.argv.count('--validate') > 0:
         nvcc_dir, cuda_arch = get_cuda_info()
         cufftdx_test(test_name, nvcc_dir, cuda_arch)
@@ -530,7 +534,7 @@ def run_accuraccy_test():
                     str(accuracy_data_size),
                     str(ITER_COUNT),
                     str(BATCH_SIZE),
-                    str(1),
+                    str(REPEATS),
                     "--vulkan"],
                 cwd=Path(f"tests/accuracy/test_results").resolve(),
                 env={"VKDISPATCH_BACKEND": "vulkan"})
@@ -541,7 +545,7 @@ def run_accuraccy_test():
                     str(accuracy_data_size),
                     str(ITER_COUNT),
                     str(BATCH_SIZE),
-                    str(1),
+                    str(REPEATS),
                     "--cuda"],
                 cwd=Path(f"tests/accuracy/test_results").resolve(),
                 env={"VKDISPATCH_BACKEND": "cuda"})
@@ -552,40 +556,38 @@ def run_accuraccy_test():
                     str(accuracy_data_size),
                     str(ITER_COUNT),
                     str(BATCH_SIZE),
-                    str(1),
+                    str(REPEATS),
                     "--opencl"],
                 cwd=Path(f"tests/accuracy/test_results").resolve(),
                 env={"VKDISPATCH_BACKEND": "opencl"})
     
-    make_graph.make_graph("accuracy", "Accuracy", "FFT Size", "Error")
+    make_graph("accuracy", "Accuracy", "FFT Size", "Error")
 
 if __name__ == "__main__":
-    get_cuda_info()
-
     fetch_dependencies()
 
     run_accuraccy_test()
 
-    # run_test(
-    #     test_name="fft_nonstrided",
-    #     title="Nonstrided FFT Performance",
-    #     xlabel="FFT Size",
-    #     ylabel="GB/s (higher is better)"
-    # )
+    run_test(
+        test_name="fft_nonstrided",
+        title="Nonstrided FFT Performance",
+        xlabel="FFT Size",
+        ylabel="GB/s (higher is better)"
+    )
 
-    # run_test(
-    #     test_name="fft_strided",
-    #     title="Strided FFT Performance",
-    #     xlabel="FFT Size",
-    #     ylabel="GB/s (higher is better)"
-    # )
+    run_test(
+        test_name="fft_strided",
+        title="Strided FFT Performance",
+        xlabel="FFT Size",
+        ylabel="GB/s (higher is better)"
+    )
 
-    # run_test(
-    #     test_name="fft_2d",
-    #     title="2D FFT Performance",
-    #     xlabel="FFT Size",
-    #     ylabel="GB/s (higher is better)"
-    # )
+    run_test(
+        test_name="fft_2d",
+        title="2D FFT Performance",
+        xlabel="FFT Size",
+        ylabel="GB/s (higher is better)"
+    )
 
     if cuda_enabled:
         run_nvidia_test(

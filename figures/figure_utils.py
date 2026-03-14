@@ -80,6 +80,13 @@ test_properties = {
         linestyle='-',
         y_scaling=True
     ),
+    "vkfft_accuracy": TestProperties(
+        name="VkFFT",
+        color="#56B4E9",
+        marker='P',
+        linestyle='-',
+        y_scaling=True
+    ),
     "vkfft_naive": TestProperties(
         name="VkFFT (Naive)",
         color='#56B4E9',
@@ -91,6 +98,13 @@ test_properties = {
     # === VkDispatch family ===
     "vkdispatch_vulkan": TestProperties(
         name="VkDispatch VK (Fused)",
+        color='#D55E00',
+        marker='s',
+        linestyle='-',
+        y_scaling=True
+    ),
+    "vkdispatch_vulkan_accuracy": TestProperties(
+        name="VkDispatch",
         color='#D55E00',
         marker='s',
         linestyle='-',
@@ -160,6 +174,13 @@ test_properties = {
     # === cuFFTDx family ===
     "cufftdx": TestProperties(
         name="cuFFTDx (Fused)",
+        color='#009E73',
+        marker='v',
+        linestyle='-',
+        y_scaling=True
+    ),
+    "cufftdx_accuracy": TestProperties(
+        name="cuFFTDx",
         color='#009E73',
         marker='v',
         linestyle='-',
@@ -308,7 +329,8 @@ def plot_data(test_data: Dict[str, Dict[int, Tuple[float, float]]],
               fontsize: int = 8,
               show_squared_x: bool = False,
               max_fft_size: int = None,
-              log_y: bool = False):
+              log_y: bool = False,
+              y_label: str = None):
     plt.style.use('seaborn-v0_8-whitegrid')
         
     plt.rcParams.update({
@@ -380,7 +402,10 @@ def plot_data(test_data: Dict[str, Dict[int, Tuple[float, float]]],
             ax2.set_ylabel('Fused Effective Bandwidth (GB/s)')
             ax2.grid(False)
         else:
-            ax_main.set_ylabel('Effective Bandwidth (GB/s)')
+            if y_label is not None:
+                ax_main.set_ylabel(y_label)
+            else:
+                ax_main.set_ylabel('Effective Bandwidth (GB/s)')
 
         if all_sizes:
             sorted_sizes = sorted(list(all_sizes))

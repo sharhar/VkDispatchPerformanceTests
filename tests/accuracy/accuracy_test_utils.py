@@ -23,7 +23,11 @@ class AccuracyConfig:
 
     def make_random_data(self, fft_size: int, run_index: int):
         shape = self.make_shape(fft_size)
-        rng = np.random.default_rng(self.seed + fft_size * 1000 + run_index)
+
+        #seed = self.seed + fft_size * 1000 + run_index
+        seed = np.random.randint(0, 10000000)
+
+        rng = np.random.default_rng(seed)
 
         real = rng.standard_normal(shape).astype(np.float32)
         imag = rng.standard_normal(shape).astype(np.float32)
@@ -149,7 +153,7 @@ def run_accuracy_test(output_name: str,
                 )
 
             writer.writerow(
-                [output_name, fft_size]
+                [f"{output_name}_{backend}", fft_size]
                 + [f"{value:.6e}" for value in rel_l2_errors]
                 + [
                     f"{np.mean(rel_l2_errors):.6e}",
