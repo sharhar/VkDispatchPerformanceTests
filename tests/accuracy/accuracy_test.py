@@ -25,57 +25,14 @@ def vkfft_test_function(config: AccuracyConfig,
     vd.vkfft.fft(buffer)
 
 
-def _find_nvcc() -> Optional[str]:
-    cuda_home = os.environ.get("CUDA_HOME")
-    if cuda_home:
-        candidate = Path(cuda_home) / "bin" / "nvcc"
-        if candidate.exists():
-            return str(candidate)
+def get_nvcc() -> str:
+    return os.environ.get("VKDISPATCH_TEST_NVCC_PATH")
 
-    return shutil.which("nvcc")
+def get_cuda_arch() -> int:
+    return os.environ.get("VKDISPATCH_TEST_CUDA_ARCH")
 
-
-def _detect_cuda_arch(nvcc_path: str, root_dir: Path, build_dir: Path) -> Optional[int]:
-    arch_source = root_dir / "arch_code.cu"
-    arch_exec = build_dir / "arch_code_accuracy.exec"
-
-    try:
-        subprocess.run(
-            [nvcc_path, str(arch_source), "-o", str(arch_exec)],
-            cwd=build_dir,
-            check=True,
-            capture_output=True,
-            text=True
-        )
-        result = subprocess.run(
-            [str(arch_exec)],
-            cwd=build_dir,
-            check=True,
-            capture_output=True,
-            text=True
-        )
-        return int(result.stdout.strip())
-    except (subprocess.CalledProcessError, ValueError) as error:
-        if isinstance(error, subprocess.CalledProcessError):
-            details = (error.stderr or error.stdout or str(error)).strip()
-        else:
-            details = str(error)
-        print(f"Skipping CUDA accuracy tests: failed to detect CUDA architecture ({details})")
-        return None
-    finally:
-        if arch_exec.exists():
-            arch_exec.unlink()
-
-
-def _compile_cuda_accuracy_binary() -> Optional[Path]:
-    if platform.system() == "Darwin":
-        print("Skipping CUDA accuracy tests on macOS")
-        return None
-
-    nvcc_path = _find_nvcc()
-    if nvcc_path is None:
-        print("Skipping CUDA accuracy tests: nvcc not found")
-        return None
+def compile_cuda_accuracy_binary() -> Optional[Path]:
+    nvcc_path = get_nvcc()
 
     script_dir = Path(__file__).resolve().parent
     root_dir = script_dir.parents[1]
@@ -101,9 +58,7 @@ def _compile_cuda_accuracy_binary() -> Optional[Path]:
         print("Skipping CUDA accuracy tests: CUDA dependencies are missing. Run run_all_tests.py once to fetch them.")
         return None
 
-    cuda_arch = _detect_cuda_arch(nvcc_path, root_dir, build_dir)
-    if cuda_arch is None:
-        return None
+    cuda_arch = get_cuda_arch()
 
     executable = build_dir / f"cuda_accuracy_test_sm{cuda_arch}.exec"
     needs_rebuild = (not executable.exists()) or (source_file.stat().st_mtime > executable.stat().st_mtime)
@@ -193,7 +148,7 @@ def _run_cuda_backend_once(config: AccuracyConfig,
     return compute_metrics(reference, result_data)
 
 
-def _run_cuda_accuracy_test(output_name: str,
+def run_cuda_accuracy_test(output_name: str,
                             backend_name: str,
                             executable: Path):
     config = parse_args()
@@ -250,12 +205,12 @@ def _run_cuda_accuracy_test(output_name: str,
 
 
 def run_cuda_accuracy_tests_if_available():
-    executable = _compile_cuda_accuracy_binary()
+    executable = compile_cuda_accuracy_binary()
     if executable is None:
         return
 
-    _run_cuda_accuracy_test("cufft_accuracy", "cufft", executable)
-    _run_cuda_accuracy_test("cufftdx_accuracy", "cufftdx", executable)
+    run_cuda_accuracy_test("cufft_accuracy", "cufft", executable)
+    run_cuda_accuracy_test("cufftdx_accuracy", "cufftdx", executable)
 
 
 if __name__ == "__main__":
