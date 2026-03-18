@@ -258,6 +258,22 @@ def sort_legend(ax):
 
     return list(sorted_handles), list(sorted_labels)
 
+def sort_legend_from_axes(axes):
+    handles_by_label = {}
+
+    for ax in axes:
+        handles, labels = ax.get_legend_handles_labels()
+        for handle, label in zip(handles, labels):
+            handles_by_label[label] = handle
+
+    sorted_pairs = sorted(handles_by_label.items(), key=lambda x: get_legend_sort_key(x[0]))
+    if not sorted_pairs:
+        return [], []
+
+    sorted_labels = [label for label, _ in sorted_pairs]
+    sorted_handles = [handle for _, handle in sorted_pairs]
+    return sorted_handles, sorted_labels
+
 def normalize_test_data_panels(test_data: Dict[str, TestDataType]) -> Tuple[List[Tuple[str, Optional[str], Dict[str, SingleTestDataType]]], bool]:
     dual_mode = any(isinstance(data, tuple) for data in test_data.values())
 
@@ -421,18 +437,30 @@ def plot_data(test_data: Dict[str, TestDataType],
         'axes.titlesize': 12,
         'xtick.labelsize': 10,
         'ytick.labelsize': 10,
-        'legend.fontsize': 10,
+        'legend.fontsize': 12,
         'figure.figsize': (6, 4)
     })
 
     panel_data, dual_mode = normalize_test_data_panels(test_data)
 
     if dual_mode:
-        fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-        axes = np.atleast_1d(axes)
+        fig, all_axes = plt.subplots(
+            1, 3,
+            figsize=(15, 4.5),
+            gridspec_kw={'width_ratios': [1, 1, 0.8]}
+        )
+        axes = np.atleast_1d(all_axes[:2])
+        legend_ax = all_axes[2]
     else:
-        fig, ax = plt.subplots()
-        axes = [ax]
+        fig, all_axes = plt.subplots(
+            1, 2,
+            figsize=(10, 4.5),
+            gridspec_kw={'width_ratios': [1.6, 0.9]}
+        )
+        axes = [all_axes[0]]
+        legend_ax = all_axes[1]
+
+    legend_ax.axis('off')
 
     # final_average, fused_average = save_data_average(test_data, max_fft_size=max_fft_size, scale_factor=scale_factor, output_name=output_name)
 
@@ -450,17 +478,22 @@ def plot_data(test_data: Dict[str, TestDataType],
         if panel_title is not None:
             ax_main.set_title(panel_title)
 
-    if dual_mode:
-        for ax in axes:
-            handles, labels = sort_legend(ax)
-            if handles:
-                ax.legend(handles, labels, frameon=True, loc=loc, ncol=ncol, fontsize=fontsize)
-        plt.tight_layout()
-    else:
-        handles, labels = sort_legend(axes[0])
-        if handles:
-            axes[0].legend(handles, labels, frameon=True, loc=loc, ncol=ncol, fontsize=fontsize)
-        plt.tight_layout()
+    handles, labels = sort_legend_from_axes(axes)
+    if handles:
+        legend_ax.legend(
+            handles,
+            labels,
+            frameon=True,
+            loc='center',
+            ncol=1,
+            fontsize=max(fontsize + 2, 12),
+            borderpad=1.2,
+            labelspacing=1.1,
+            handlelength=2.4,
+            handletextpad=0.8
+        )
+
+    plt.tight_layout()
 
     plt.savefig(f"{output_name}.pdf", format='pdf', dpi=300)
     print(f"Graph saved successfully to {output_name}.pdf")
