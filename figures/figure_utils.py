@@ -6,10 +6,28 @@ import dataclasses
 import numpy as np
 from matplotlib import pyplot as plt
 
-from typing import Dict, Tuple, Set
+import sys
 
-def load_test_data(test_id: str, test_category: str) -> Dict[int, Tuple[float, float]]:
-    filename = f"../test_results/{test_category}/{test_id}.csv"
+from typing import Dict, Tuple, Union
+
+TestDataType = Union[
+   Dict[int, Tuple[float, float]],
+   Tuple[Dict[int, Tuple[float, float]], Dict[int, Tuple[float, float]]]
+]
+
+def load_test_data(test_id: str, test_category: str, load_dual: bool, test_folder: str = None) -> TestDataType:
+    if load_dual:
+        assert test_folder is None, "Dual test loading requires explicit test_folder argument"
+
+        return (
+            load_test_data(test_id, test_category, False, test_folder="../test_results_nvidia"),
+            load_test_data(test_id, test_category, False, test_folder="../test_results_macos")
+        )
+
+    if test_folder is None:
+        test_folder = "../test_results"
+
+    filename = f"{test_folder}/{test_category}/{test_id}.csv"
 
     results = {}
     if not os.path.exists(filename):
@@ -31,9 +49,10 @@ def load_test_data(test_id: str, test_category: str) -> Dict[int, Tuple[float, f
     return results
 
 def load_tests(tests: Dict[str, Tuple[str, str]]):
+    load_dual = sys.argv.count("--dual_nvidia_macos") != 0
     test_data = {}
     for test_name, (test_id, test_category) in tests.items():
-        data = load_test_data(test_id, test_category)
+        data = load_test_data(test_id, test_category, load_dual)
         test_data[test_name] = data
     return test_data
 
@@ -236,7 +255,7 @@ def sort_legend(ax):
     
     return list(sorted_handles), list(sorted_labels)
 
-def save_plot_data_csv(test_data: Dict[str, Dict[int, Tuple[float, float]]], output_name: str):
+def save_plot_data_csv(test_data: Dict[str, TestDataType], output_name: str):
     """
     Saves the aggregated test data to a CSV file.
     Rows are aligned by FFT Size. Columns use the human-readable names.
@@ -278,49 +297,7 @@ def save_plot_data_csv(test_data: Dict[str, Dict[int, Tuple[float, float]]], out
     except IOError as e:
         print(f"Error saving CSV {csv_filename}: {e}")
 
-def save_data_average(test_data: Dict[str, Dict[int, Tuple[float, float]]], scale_factor: float, output_name: str, max_fft_size: int = None) -> Dict[str, float]:
-    """
-    Computes the average effective bandwidth for each test up to max_fft_size.
-    Returns a dictionary mapping test names to their average bandwidth.
-    """
-    averages = []
-    fused_averages = []
-    for test_name, data in test_data.items():
-        props = test_properties[test_name]
-        total_bandwidth = 0.0
-        count = 0
-        for size, (mean, _) in data.items():
-            if max_fft_size is None or size <= max_fft_size:
-                total_bandwidth += mean
-                count += 1
-
-        if props.y_scaling:
-            fused_averages.append(total_bandwidth / count)
-            continue
-            #total_bandwidth /= scale_factor
-
-        if props.y_scaling is None and max_fft_size is not None:
-            continue
-
-        averages.append(total_bandwidth / count)
-
-    final_average = sum(averages) / len(averages) if averages else 0.0
-    final_fused_average = sum(fused_averages) / len(fused_averages) if fused_averages else 0.0
-    
-    out_filename = f"{output_name}.txt"
-
-    try:
-        with open(out_filename, 'w') as f:
-            f.write(f"Average Effective Bandwidth: {final_average:.4f} GB/s\n")
-            f.write(f"Average Fused Effective Bandwidth: {final_fused_average:.4f} GB/s\n")
-            f.write(f"Speed Ratio: {final_fused_average / final_average:.4f}x\n")
-        print(f"Average bandwidths saved successfully to {out_filename}")
-    except IOError as e:
-        print(f"Error saving averages to {out_filename}: {e}")
-
-    return final_average, fused_averages
-
-def plot_data(test_data: Dict[str, Dict[int, Tuple[float, float]]],
+def plot_data(test_data: Dict[str, TestDataType],
               scale_factor: float,
               output_name: str,
               split_y_axis: bool = False,
