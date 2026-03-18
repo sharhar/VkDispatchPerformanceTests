@@ -6,10 +6,31 @@ import dataclasses
 import numpy as np
 from matplotlib import pyplot as plt
 
-from typing import Dict, Tuple, Set
+import sys
 
-def load_test_data(test_id: str, test_category: str) -> Dict[int, Tuple[float, float]]:
-    filename = f"../test_results/{test_category}/{test_id}.csv"
+from typing import Dict, List, Optional, Tuple, Union
+
+SingleTestDataType = Dict[int, Tuple[float, float]]
+DualTestDataType = Tuple[SingleTestDataType, SingleTestDataType]
+
+TestDataType = Union[
+   SingleTestDataType,
+   DualTestDataType
+]
+
+def load_test_data(test_id: str, test_category: str, load_dual: bool, test_folder: str = None) -> TestDataType:
+    if load_dual:
+        assert test_folder is None, "Dual test loading requires explicit test_folder argument"
+
+        return (
+            load_test_data(test_id, test_category, False, test_folder="../test_results_nvidia"),
+            load_test_data(test_id, test_category, False, test_folder="../test_results_macos")
+        )
+
+    if test_folder is None:
+        test_folder = "../test_results"
+
+    filename = f"{test_folder}/{test_category}/{test_id}.csv"
 
     results = {}
     if not os.path.exists(filename):
@@ -31,9 +52,10 @@ def load_test_data(test_id: str, test_category: str) -> Dict[int, Tuple[float, f
     return results
 
 def load_tests(tests: Dict[str, Tuple[str, str]]):
+    load_dual = sys.argv.count("--dual_nvidia_macos") != 0
     test_data = {}
     for test_name, (test_id, test_category) in tests.items():
-        data = load_test_data(test_id, test_category)
+        data = load_test_data(test_id, test_category, load_dual)
         test_data[test_name] = data
     return test_data
 
@@ -229,14 +251,122 @@ def get_legend_sort_key(label: str) -> tuple:
 def sort_legend(ax):
     """Sorts legend: Naive on top, cuFFT reference middle, Fused below."""
     handles, labels = ax.get_legend_handles_labels()
-    
+
     # Zip, sort, unzip
     sorted_pairs = sorted(zip(handles, labels), key=lambda x: get_legend_sort_key(x[1]))
     sorted_handles, sorted_labels = zip(*sorted_pairs) if sorted_pairs else ([], [])
-    
+
     return list(sorted_handles), list(sorted_labels)
 
-def save_plot_data_csv(test_data: Dict[str, Dict[int, Tuple[float, float]]], output_name: str):
+def sort_legend_from_axes(axes):
+    handles_by_label = {}
+
+    for ax in axes:
+        handles, labels = ax.get_legend_handles_labels()
+        for handle, label in zip(handles, labels):
+            handles_by_label[label] = handle
+
+    sorted_pairs = sorted(handles_by_label.items(), key=lambda x: get_legend_sort_key(x[0]))
+    if not sorted_pairs:
+        return [], []
+
+    sorted_labels = [label for label, _ in sorted_pairs]
+    sorted_handles = [handle for _, handle in sorted_pairs]
+    return sorted_handles, sorted_labels
+
+def normalize_test_data_panels(test_data: Dict[str, TestDataType]) -> Tuple[List[Tuple[str, Optional[str], Dict[str, SingleTestDataType]]], bool]:
+    dual_mode = any(isinstance(data, tuple) for data in test_data.values())
+
+    if not dual_mode:
+        return [("single", None, test_data)], False
+
+    nvidia_data = {}
+    macos_data = {}
+
+    for test_name, data in test_data.items():
+        if isinstance(data, tuple):
+            nvidia_data[test_name], macos_data[test_name] = data
+        else:
+            nvidia_data[test_name] = data
+            macos_data[test_name] = data
+
+    return [
+        ("nvidia", "NVIDIA", nvidia_data),
+        ("macos", "macOS", macos_data),
+    ], True
+
+def configure_axis_ticks(ax_main, all_sizes, show_squared_x: bool):
+    if not all_sizes:
+        return
+
+    sorted_sizes = sorted(list(all_sizes))
+    ax_main.set_xticks(sorted_sizes)
+
+    if show_squared_x:
+        labels = [f"${s}^2$" for s in sorted_sizes]
+        ax_main.set_xticklabels(labels)
+    else:
+        ax_main.set_xticklabels(sorted_sizes)
+
+def plot_panel(ax_main,
+               panel_test_data: Dict[str, SingleTestDataType],
+               scale_factor: float,
+               split_y_axis: bool,
+               show_squared_x: bool,
+               log_y: bool,
+               y_label: Optional[str]):
+    all_sizes = set()
+
+    for test_name in panel_test_data.keys():
+        props = test_properties[test_name]
+
+        x, y_raw, y_err_raw = extract_plot_data(panel_test_data[test_name])
+
+        if len(x) == 0:
+            continue
+
+        all_sizes.update(x)
+
+        if props.y_scaling is None:
+            do_scaling = False
+        else:
+            do_scaling = props.y_scaling and split_y_axis
+
+        y_plot = y_raw / scale_factor if do_scaling else y_raw
+        y_err_plot = y_err_raw / scale_factor if do_scaling else y_err_raw
+
+        ax_main.plot(x, y_plot,
+                    label=props.name,
+                    color=props.color,
+                    marker=props.marker,
+                    markersize=5,
+                    linestyle=props.linestyle, linewidth=1, alpha=0.9)
+
+    ax_main.set_xscale('log', base=2)
+    ax_main.set_xlabel('FFT Size (N)')
+
+    if split_y_axis:
+        ax_main.set_ylabel('Naive Effective Bandwidth (GB/s)')
+
+        ax2 = ax_main.twinx()
+        y_min, y_max = ax_main.get_ylim()
+        ax2.set_ylim(y_min * scale_factor, y_max * scale_factor)
+        ax2.set_ylabel('Fused Effective Bandwidth (GB/s)')
+        ax2.grid(False)
+    else:
+        if y_label is not None:
+            ax_main.set_ylabel(y_label)
+        else:
+            ax_main.set_ylabel('Effective Bandwidth (GB/s)')
+
+    configure_axis_ticks(ax_main, all_sizes, show_squared_x)
+
+    if log_y:
+        ax_main.set_yscale("log")
+
+    ax_main.grid(True, which="both", ls="-", alpha=0.3)
+
+def save_single_plot_data_csv(test_data: Dict[str, SingleTestDataType], output_name: str):
     """
     Saves the aggregated test data to a CSV file.
     Rows are aligned by FFT Size. Columns use the human-readable names.
@@ -278,49 +408,17 @@ def save_plot_data_csv(test_data: Dict[str, Dict[int, Tuple[float, float]]], out
     except IOError as e:
         print(f"Error saving CSV {csv_filename}: {e}")
 
-def save_data_average(test_data: Dict[str, Dict[int, Tuple[float, float]]], scale_factor: float, output_name: str, max_fft_size: int = None) -> Dict[str, float]:
-    """
-    Computes the average effective bandwidth for each test up to max_fft_size.
-    Returns a dictionary mapping test names to their average bandwidth.
-    """
-    averages = []
-    fused_averages = []
-    for test_name, data in test_data.items():
-        props = test_properties[test_name]
-        total_bandwidth = 0.0
-        count = 0
-        for size, (mean, _) in data.items():
-            if max_fft_size is None or size <= max_fft_size:
-                total_bandwidth += mean
-                count += 1
+def save_plot_data_csv(test_data: Dict[str, TestDataType], output_name: str):
+    panel_data, dual_mode = normalize_test_data_panels(test_data)
 
-        if props.y_scaling:
-            fused_averages.append(total_bandwidth / count)
-            continue
-            #total_bandwidth /= scale_factor
+    if not dual_mode:
+        save_single_plot_data_csv(panel_data[0][2], output_name)
+        return
 
-        if props.y_scaling is None and max_fft_size is not None:
-            continue
+    for panel_key, _, panel_test_data in panel_data:
+        save_single_plot_data_csv(panel_test_data, f"{output_name}_{panel_key}")
 
-        averages.append(total_bandwidth / count)
-
-    final_average = sum(averages) / len(averages) if averages else 0.0
-    final_fused_average = sum(fused_averages) / len(fused_averages) if fused_averages else 0.0
-    
-    out_filename = f"{output_name}.txt"
-
-    try:
-        with open(out_filename, 'w') as f:
-            f.write(f"Average Effective Bandwidth: {final_average:.4f} GB/s\n")
-            f.write(f"Average Fused Effective Bandwidth: {final_fused_average:.4f} GB/s\n")
-            f.write(f"Speed Ratio: {final_fused_average / final_average:.4f}x\n")
-        print(f"Average bandwidths saved successfully to {out_filename}")
-    except IOError as e:
-        print(f"Error saving averages to {out_filename}: {e}")
-
-    return final_average, fused_averages
-
-def plot_data(test_data: Dict[str, Dict[int, Tuple[float, float]]],
+def plot_data(test_data: Dict[str, TestDataType],
               scale_factor: float,
               output_name: str,
               split_y_axis: bool = False,
@@ -339,93 +437,64 @@ def plot_data(test_data: Dict[str, Dict[int, Tuple[float, float]]],
         'axes.titlesize': 12,
         'xtick.labelsize': 10,
         'ytick.labelsize': 10,
-        'legend.fontsize': 10,
+        'legend.fontsize': 12,
         'figure.figsize': (6, 4)
     })
 
-    fig, ax = plt.subplots()
-    axes_pairs = [(ax, None, None)]
+    panel_data, dual_mode = normalize_test_data_panels(test_data)
+
+    if dual_mode:
+        fig, all_axes = plt.subplots(
+            1, 3,
+            figsize=(15, 4.5),
+            gridspec_kw={'width_ratios': [1, 1, 0.8]}
+        )
+        axes = np.atleast_1d(all_axes[:2])
+        legend_ax = all_axes[2]
+    else:
+        fig, all_axes = plt.subplots(
+            1, 2,
+            figsize=(10, 4.5),
+            gridspec_kw={'width_ratios': [1.6, 0.9]}
+        )
+        axes = [all_axes[0]]
+        legend_ax = all_axes[1]
+
+    legend_ax.axis('off')
 
     # final_average, fused_average = save_data_average(test_data, max_fft_size=max_fft_size, scale_factor=scale_factor, output_name=output_name)
 
-    for ax_main, threshold, mode in axes_pairs:
-        all_sizes = set()
+    for ax_main, (_, panel_title, panel_test_data) in zip(axes, panel_data):
+        plot_panel(
+            ax_main=ax_main,
+            panel_test_data=panel_test_data,
+            scale_factor=scale_factor,
+            split_y_axis=split_y_axis,
+            show_squared_x=show_squared_x,
+            log_y=log_y,
+            y_label=y_label
+        )
 
-        for test_name in test_data.keys():
-            props = test_properties[test_name]
-            
-            x, y_raw, y_err_raw = extract_plot_data(test_data[test_name])
+        if panel_title is not None:
+            ax_main.set_title(panel_title)
 
-            # Filter data based on threshold if splitting
-            if threshold is not None:
-                if mode == "le":
-                    mask = x <= threshold
-                else:  # mode == "gt"
-                    mask = x > threshold
-                x = x[mask]
-                y_raw = y_raw[mask]
-                y_err_raw = y_err_raw[mask]
-            
-            if len(x) == 0:
-                continue
-
-            all_sizes.update(x)
-
-            # Determine y_scaling behavior
-            # None means: scale on left graph, don't scale on right graph
-            if props.y_scaling is None:
-                do_scaling = False
-            else:
-                do_scaling = props.y_scaling and split_y_axis
-
-            y_plot = y_raw / scale_factor if do_scaling else y_raw
-            y_err_plot = y_err_raw / scale_factor if do_scaling else y_err_raw
-
-            # Plot without error bars for clarity
-            ax_main.plot(x, y_plot,
-                        label=props.name, 
-                        color=props.color,
-                        marker=props.marker,
-                        markersize=5,
-                        linestyle=props.linestyle, linewidth=1, alpha=0.9)
-
-        ax_main.set_xscale('log', base=2)
-        ax_main.set_xlabel('FFT Size (N)')
-        
-
-        if split_y_axis:
-            ax_main.set_ylabel('Naive Effective Bandwidth (GB/s)')
-
-            ax2 = ax_main.twinx()
-            y_min, y_max = ax_main.get_ylim()
-            ax2.set_ylim(y_min * scale_factor, y_max * scale_factor)
-            ax2.set_ylabel('Fused Effective Bandwidth (GB/s)')
-            ax2.grid(False)
-        else:
-            if y_label is not None:
-                ax_main.set_ylabel(y_label)
-            else:
-                ax_main.set_ylabel('Effective Bandwidth (GB/s)')
-
-        if all_sizes:
-            sorted_sizes = sorted(list(all_sizes))
-            ax_main.set_xticks(sorted_sizes)
-            
-            if show_squared_x:
-                # Formats label as LaTeX math: e.g., "1024^2" appears as 1024²
-                labels = [f"${s}^2$" for s in sorted_sizes]
-                ax_main.set_xticklabels(labels)
-            else:
-                ax_main.set_xticklabels(sorted_sizes)
-
-        if log_y:
-            ax_main.set_yscale("log")
-            
-        ax_main.grid(True, which="both", ls="-", alpha=0.3)
-        handles, labels = sort_legend(ax_main)
-        ax_main.legend(handles, labels, frameon=True, loc=loc, ncol=ncol, fontsize=fontsize)
+    handles, labels = sort_legend_from_axes(axes)
+    if handles:
+        legend_ax.legend(
+            handles,
+            labels,
+            frameon=True,
+            loc='center',
+            ncol=1,
+            fontsize=max(fontsize + 2, 12),
+            borderpad=1.2,
+            labelspacing=1.1,
+            handlelength=2.4,
+            handletextpad=0.8
+        )
 
     plt.tight_layout()
+
     plt.savefig(f"{output_name}.pdf", format='pdf', dpi=300)
     print(f"Graph saved successfully to {output_name}.pdf")
 
