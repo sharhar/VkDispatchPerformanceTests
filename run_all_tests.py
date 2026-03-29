@@ -27,7 +27,7 @@ import colorsys
 DATA_SIZE=2**27
 ITER_COUNT=200
 BATCH_SIZE=20
-REPEATS=3
+REPEATS=5
 
 __cuda_info = None
 cuda_enabled = sys.argv.count('--cuda') > 0
