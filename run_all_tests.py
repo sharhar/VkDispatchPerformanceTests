@@ -465,7 +465,7 @@ def run_nvidia_test(test_name: str, title: str, xlabel: str, ylabel: str):
             str(cuda_arch)],
             cwd=Path(f"tests/{test_name}").resolve())
     
-    make_graph.make_graph(test_name, title, xlabel, ylabel)
+    make_graph(test_name, title, xlabel, ylabel)
 
 def run_test(test_name: str, title: str, xlabel: str, ylabel: str):
     print(f"Running {test_name} test...")
@@ -548,7 +548,11 @@ def run_accuraccy_test():
                     str(REPEATS),
                     "--cuda"],
                 cwd=Path(f"tests/accuracy/test_results").resolve(),
-                env={"VKDISPATCH_BACKEND": "cuda"})
+                env={
+                    "VKDISPATCH_BACKEND": "cuda",
+                    "VKDISPATCH_TEST_NVCC_PATH": get_cuda_info()[0],
+                    "VKDISPATCH_TEST_CUDA_ARCH": str(get_cuda_info()[1])
+                })
     
     if opencl_enabled:
         print(f"Running opencl Accuracy test...")
