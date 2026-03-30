@@ -425,14 +425,14 @@ def cufftdx_test(test_name: str, nvcc_dir: str, cuda_arch: int):
                         str(0)],
                         cwd=Path(f"tests/{test_name}/test_results").resolve())
     else:
-        # print(f"Running {test_name} cuFFT test...")
-        # run_process([f"./cufftdx_test.exec",
-        #                 str(DATA_SIZE),
-        #                 str(ITER_COUNT),
-        #                 str(BATCH_SIZE),
-        #                 str(REPEATS),
-        #                 str(1)],
-        #                 cwd=Path(f"tests/{test_name}/test_results").resolve())
+        print(f"Running {test_name} cuFFT test...")
+        run_process([f"./cufftdx_test.exec",
+                        str(DATA_SIZE),
+                        str(ITER_COUNT),
+                        str(BATCH_SIZE),
+                        str(REPEATS),
+                        str(1)],
+                        cwd=Path(f"tests/{test_name}/test_results").resolve())
         
         print(f"Running {test_name} cuFFTdx test...")
         run_process([f"./cufftdx_test.exec",
@@ -571,44 +571,44 @@ if __name__ == "__main__":
     if cuda_enabled:
         fetch_dependencies()
 
-    # if sys.argv.count('--validate') == 0:
-    #     run_accuraccy_test()
+    if sys.argv.count('--validate') == 0:
+        run_accuraccy_test()
 
-    # run_test(
-    #     test_name="fft_nonstrided",
-    #     title="Nonstrided FFT Performance",
-    #     xlabel="FFT Size",
-    #     ylabel="GB/s (higher is better)"
-    # )
+    run_test(
+        test_name="fft_nonstrided",
+        title="Nonstrided FFT Performance",
+        xlabel="FFT Size",
+        ylabel="GB/s (higher is better)"
+    )
 
-    # run_test(
-    #     test_name="fft_strided",
-    #     title="Strided FFT Performance",
-    #     xlabel="FFT Size",
-    #     ylabel="GB/s (higher is better)"
-    # )
+    run_test(
+        test_name="fft_strided",
+        title="Strided FFT Performance",
+        xlabel="FFT Size",
+        ylabel="GB/s (higher is better)"
+    )
 
-    # run_test(
-    #     test_name="fft_2d",
-    #     title="2D FFT Performance",
-    #     xlabel="FFT Size",
-    #     ylabel="GB/s (higher is better)"
-    # )
+    run_test(
+        test_name="fft_2d",
+        title="2D FFT Performance",
+        xlabel="FFT Size",
+        ylabel="GB/s (higher is better)"
+    )
 
-    # if cuda_enabled and sys.argv.count('--validate') == 0:
-    #     run_nvidia_test(
-    #         test_name="conv_scaled_nvidia",
-    #         title="NVidia Scaled Convolution Performance",
-    #         xlabel="Convolution Size (FFT size)",
-    #         ylabel="ms (lower is better)"
-    #     )
+    if cuda_enabled and sys.argv.count('--validate') == 0:
+        run_nvidia_test(
+            test_name="conv_scaled_nvidia",
+            title="NVidia Scaled Convolution Performance",
+            xlabel="Convolution Size (FFT size)",
+            ylabel="ms (lower is better)"
+        )
 
-    # run_test(
-    #     test_name="conv_scaled_control",
-    #     title="Control Scaled Convolution Performance",
-    #     xlabel="Convolution Size (FFT size)", 
-    #     ylabel="GB/s (higher is better)"
-    # )
+    run_test(
+        test_name="conv_scaled_control",
+        title="Control Scaled Convolution Performance",
+        xlabel="Convolution Size (FFT size)", 
+        ylabel="GB/s (higher is better)"
+    )
 
     run_test(
         test_name="conv_2d",
