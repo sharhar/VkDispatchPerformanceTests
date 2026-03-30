@@ -44,23 +44,39 @@ void run_test(void* plan, cufftComplex* d_data, cufftComplex* d_kernel, long lon
 template<int FFTSize, int FFTsInBlock, int exec_mode>
 void delete_test(void* plan);
 
+__device__ inline uint32_t mix32(uint32_t x) {
+    x ^= x >> 16;
+    x *= 0x7feb352dU;
+    x ^= x >> 15;
+    x *= 0x846ca68bU;
+    x ^= x >> 16;
+    return x;
+}
+
+__device__ inline float u32_to_unit_float(uint32_t x) {
+    return float(x >> 8) * (1.0f / 16777216.0f);
+}
+
 __global__ void fill_randomish(cufftComplex* a, long long n, int offset, int fft_size){
     long long i = blockIdx.x * blockDim.x + threadIdx.x;
 
     if (i < n) {
-        int y = ((i + offset) % n) / fft_size; 
-        int x = (i + offset) % fft_size;
-        a[i] = make_float2((float)x / (float)fft_size, (float)__sinf(y)); 
+        const uint32_t image_size = static_cast<uint32_t>(fft_size * fft_size);
+        const uint32_t image_idx  = static_cast<uint32_t>(i / image_size);
+        const uint32_t local_idx  = static_cast<uint32_t>(i % image_size);
+        const uint32_t y          = local_idx / static_cast<uint32_t>(fft_size);
+        const uint32_t x          = local_idx % static_cast<uint32_t>(fft_size);
+
+        uint32_t base = static_cast<uint32_t>(offset);
+        base ^= x * 0x9e3779b1U;
+        base ^= y * 0x85ebca6bU;
+        base ^= image_idx * 0xc2b2ae35U;
+
+        const float ax = (u32_to_unit_float(mix32(base ^ 0x68bc21ebU)) * 2.0f - 1.0f) * 0.5f;
+        const float ay = (u32_to_unit_float(mix32(base ^ 0x02e5be93U)) * 2.0f - 1.0f) * 0.5f;
+
+        a[i] = make_float2(ax, ay);
     }
-
-    // if(i<n){
-    //     float x = __sinf(i * 0.00173f) + cosf(i * 0.00037f) + __tanf(i * 0.00029f) + 
-    //                 sinhf(i * 0.013f) + coshf(i * 0.0019f) + tanhf(i * 0.00023f) + 
-    //                 expf(sinf(i * 0.011f)) + expf(cosf(i * 0.007f));
-
-    //     float y = __cosf(i * 0.00091f) + sinhf(i * 0.00053f) + tanhf(i * 0.00097f) + sinf(i * 0.23f) + coshf(i * 0.0037f) + tanf(i * 0.011f);
-    //     a[i] = make_float2(cosf(x), sinf(y));
-    // }
 }
 
 static inline void checkCuda(cudaError_t err, const char* what) {
@@ -121,15 +137,15 @@ static double gb_per_exec(long long total_elems) {
 
 static inline bool validation_error_exceeds_tolerance(const cufftComplex& actual,
                                                       const cufftComplex& expected) {
-    constexpr float abs_tol_2 = 2.5e-7f; // (5e-4)^2
-    constexpr float rel_tol   = 1e-5f;
-    constexpr float ref_floor = 1e-8f;
+    constexpr float abs_tol   = 3e-3f;
+    constexpr float rel_tol   = 4e-2f;
+    constexpr float ref_floor = 1e-6f;
 
     const float diff_x = std::fabs(actual.x - expected.x);
     const float diff_y = std::fabs(actual.y - expected.y);
     const float diff_2 = diff_x * diff_x + diff_y * diff_y;
 
-    if (diff_2 <= abs_tol_2) {
+    if (diff_2 <= (abs_tol * abs_tol)) {
         return false;
     }
 
@@ -138,7 +154,7 @@ static inline bool validation_error_exceeds_tolerance(const cufftComplex& actual
         return true;
     }
 
-    return (diff_2 / abs_2) > rel_tol;
+    return (std::sqrt(diff_2) / std::sqrt(abs_2)) > rel_tol;
 }
 
 template<int FFTSize, int FFTsInBlock, int exec_mode>

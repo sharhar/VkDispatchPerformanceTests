@@ -568,24 +568,25 @@ def run_accuraccy_test():
     make_graph("accuracy", "Accuracy", "FFT Size", "Error")
 
 if __name__ == "__main__":
-    fetch_dependencies()
+    if cuda_enabled:
+        fetch_dependencies()
 
     if sys.argv.count('--validate') == 0:
         run_accuraccy_test()
 
-    # run_test(
-    #     test_name="fft_nonstrided",
-    #     title="Nonstrided FFT Performance",
-    #     xlabel="FFT Size",
-    #     ylabel="GB/s (higher is better)"
-    # )
+    run_test(
+        test_name="fft_nonstrided",
+        title="Nonstrided FFT Performance",
+        xlabel="FFT Size",
+        ylabel="GB/s (higher is better)"
+    )
 
-    # run_test(
-    #     test_name="fft_strided",
-    #     title="Strided FFT Performance",
-    #     xlabel="FFT Size",
-    #     ylabel="GB/s (higher is better)"
-    # )
+    run_test(
+        test_name="fft_strided",
+        title="Strided FFT Performance",
+        xlabel="FFT Size",
+        ylabel="GB/s (higher is better)"
+    )
 
     run_test(
         test_name="fft_2d",
@@ -602,12 +603,12 @@ if __name__ == "__main__":
             ylabel="ms (lower is better)"
         )
 
-    # run_test(
-    #     test_name="conv_scaled_control",
-    #     title="Control Scaled Convolution Performance",
-    #     xlabel="Convolution Size (FFT size)", 
-    #     ylabel="GB/s (higher is better)"
-    # )
+    run_test(
+        test_name="conv_scaled_control",
+        title="Control Scaled Convolution Performance",
+        xlabel="Convolution Size (FFT size)", 
+        ylabel="GB/s (higher is better)"
+    )
 
     run_test(
         test_name="conv_2d",

@@ -218,7 +218,7 @@ __device__ void apply_kernel(float2* kernel, float2* thread_data, float2* shared
 
 template <class FFT, class IFFT, bool smem_transpose, bool read_kernel_transposed>
 __launch_bounds__(FFT::max_threads_per_block)
-__global__ void strided_conv_kernel(cufftComplex* data, const cufftComplex* kernel, unsigned int inner_fft_count, typename FFT::workspace_type workspace, typename FFT::workspace_type iworkspace) {
+__global__ void strided_conv_kernel(cufftComplex* data, const cufftComplex* kernel, unsigned int inner_fft_count, typename FFT::workspace_type workspace, typename IFFT::workspace_type iworkspace) {
     cufftComplex thread_data[FFT::storage_size];
     extern __shared__ __align__(alignof(float4)) cufftComplex shared_mem[];
     unsigned int stride_len = inner_fft_count * FFT::ffts_per_block;
@@ -237,7 +237,7 @@ __global__ void strided_conv_kernel(cufftComplex* data, const cufftComplex* kern
 
 template <class FFT, class IFFT, bool smem_transpose, bool read_kernel_transposed, int padding_ratio>
 __launch_bounds__(FFT::max_threads_per_block)
-__global__ void strided_padded_conv_kernel(cufftComplex* data, const cufftComplex* kernel, unsigned int inner_fft_count, typename FFT::workspace_type workspace, typename FFT::workspace_type iworkspace) {
+__global__ void strided_padded_conv_kernel(cufftComplex* data, const cufftComplex* kernel, unsigned int inner_fft_count, typename FFT::workspace_type workspace, typename IFFT::workspace_type iworkspace) {
     cufftComplex thread_data[FFT::storage_size];
     extern __shared__ __align__(alignof(float4)) cufftComplex shared_mem[];
     unsigned int stride_len = inner_fft_count * FFT::ffts_per_block;
@@ -281,7 +281,7 @@ public:
     using FFT = decltype(make_desc<false>());
     using IFFT = decltype(make_desc<true>());
     typename FFT::workspace_type workspace;
-    typename FFT::workspace_type iworkspace;
+    typename IFFT::workspace_type iworkspace;
     unsigned int shared_mem_size;
     dim3 block_dim;
     unsigned int ffts_per_block;
