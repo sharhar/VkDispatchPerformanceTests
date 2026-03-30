@@ -14,7 +14,7 @@ float get_bandwith_scale_factor(long long elem_count, long long fft_size) {
 template<int FFTSize, int FFTsInBlock>
 struct FFTConv2DConfig {
     NonStridedFFTConfig<FFTSize, FFTsInBlock, PADDING_RATIO> fft_nonstrided;
-    StridedFFTConfig<FFTSize, FFTsInBlock, true, true, PADDING_RATIO> fft_strided;
+    StridedFFTConfig<FFTSize, FFTsInBlock, true, PADDING_RATIO> fft_strided;
 };
 
 template<int FFTSize, int FFTsInBlock, int exec_mode>

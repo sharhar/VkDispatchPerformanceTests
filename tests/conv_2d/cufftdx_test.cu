@@ -12,7 +12,7 @@ float get_bandwith_scale_factor(long long elem_count, long long fft_size) {
 template<int FFTSize, int FFTsInBlock>
 struct FFTConv2DConfig {
     NonStridedFFTConfig<FFTSize, FFTsInBlock, 1> fft_nonstrided;
-    StridedFFTConfig<FFTSize, FFTsInBlock, true, true, 1> fft_strided;
+    StridedFFTConfig<FFTSize, FFTsInBlock, true, 1> fft_strided;
 };
 
 template<int FFTSize, int FFTsInBlock, int exec_mode>
@@ -65,25 +65,37 @@ __global__ void convolve_arrays(cufftComplex* data, cufftComplex* kernel, long l
 
 template<int FFTSize, int FFTsInBlock, int exec_mode, bool validate>
 void run_test(void* plan, cufftComplex* d_data, cufftComplex* d_kernel, long long total_elems, cudaStream_t stream){
-    if constexpr (exec_mode == EXEC_MODE_CUFFT) {
-        checkCuFFT(cufftExecC2C(*static_cast<cufftHandle*>(plan), d_data, d_data, CUFFT_FORWARD), "exec");
-        convolve_arrays<<<(total_elems+255)/256,256,0,stream>>>(d_data, d_kernel, total_elems, FFTSize);
-        checkCuFFT(cufftExecC2C(*static_cast<cufftHandle*>(plan), d_data, d_data, CUFFT_INVERSE), "exec");
-        return;
+    cufftComplex* kernel_ptr = d_kernel;
+
+    if constexpr (validate) {
+        cufftComplex* transposed_kernel = nullptr;
+        checkCuda(cudaMalloc(&transposed_kernel, total_elems * sizeof(cufftComplex)), "cudaMalloc d_data");
+        checkCuda(cudaMemset(transposed_kernel, 0, total_elems * sizeof(cufftComplex)), "cudaMemset d_data");
+
+        static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_strided.transpose_kernel(transposed_kernel, d_kernel, total_elems, stream);
+
+        kernel_ptr = transposed_kernel;
     }
 
-    if constexpr (exec_mode == EXEC_MODE_CUFFTDX_NAIVE) {
+    if constexpr (exec_mode == EXEC_MODE_CUFFT) {
+        checkCuFFT(cufftExecC2C(*static_cast<cufftHandle*>(plan), d_data, d_data, CUFFT_FORWARD), "exec");
+        convolve_arrays<<<(total_elems+255)/256,256,0,stream>>>(d_data, kernel_ptr, total_elems, FFTSize);
+        checkCuFFT(cufftExecC2C(*static_cast<cufftHandle*>(plan), d_data, d_data, CUFFT_INVERSE), "exec");
+    } else if constexpr (exec_mode == EXEC_MODE_CUFFTDX_NAIVE) {
         static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_nonstrided.execute_fft(d_data, total_elems, stream);
         static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_strided.execute_fft(d_data, total_elems, stream);
-        convolve_arrays<<<(total_elems+255)/256,256,0,stream>>>(d_data, d_kernel, total_elems, FFTSize);
+        convolve_arrays<<<(total_elems+255)/256,256,0,stream>>>(d_data, kernel_ptr, total_elems, FFTSize);
         static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_strided.execute_ifft(d_data, total_elems, stream);
         static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_nonstrided.execute_ifft(d_data, total_elems, stream);
-        return;
+    } else {
+        static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_nonstrided.execute_fft(d_data, total_elems, stream);
+        static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_strided.execute_conv(d_data, kernel_ptr, total_elems, stream);
+        static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_nonstrided.execute_ifft(d_data, total_elems, stream);
     }
     
-    static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_nonstrided.execute_fft(d_data, total_elems, stream);
-    static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_strided.execute_conv(d_data, d_kernel, total_elems, stream);
-    static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_nonstrided.execute_ifft(d_data, total_elems, stream);
+    if constexpr (validate) {
+        checkCuda(cudaFree(kernel_ptr), "cudaFree transposed_kernel");
+    }
 }
 
 
