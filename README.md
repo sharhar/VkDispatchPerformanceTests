@@ -1,8 +1,8 @@
 # VkDispatchPerformanceTests
 
-This repository contains benchmark and accuracy tests for `vkdispatch`, plus scripts for turning benchmark outputs into publication-style figures. It is intended to evaluate `vkdispatch` itself for paper-quality comparisons and repeatable measurements.
+This repository contains benchmark and accuracy tests for `vkdispatch`. It is intended to evaluate `vkdispatch` itself for paper-quality comparisons and repeatable measurements.
 
-The primary user-facing entrypoint for running benchmarks is `run_all_tests.py`. Figure generation is handled separately by the scripts under `figures/`.
+The primary user-facing entrypoint for running benchmarks is `run_all_tests.py`.
 
 ## Dependencies
 
@@ -22,7 +22,7 @@ This package includes the core `vkdispatch` library and the Vulkan backend. The 
 
 ### CUDA Benchmarks
 
-CUDA benchmark helper binaries and cuFFT/cuFFTDx comparisons require a CUDA toolkit installation with `nvcc`. `run_all_tests.py` checks `CUDA_HOME/bin/nvcc` first if `CUDA_HOME` is set, otherwise it uses `nvcc` from `PATH`
+CUDA benchmark helper binaries and cuFFT/cuFFTDx comparisons require a CUDA toolkit (version 12 or higher) installation with `nvcc`. `run_all_tests.py` checks `CUDA_HOME/bin/nvcc` first if `CUDA_HOME` is set, otherwise it uses `nvcc` from `PATH`
 
 CUDA accuracy helpers and cuFFTDx benchmarks rely on downloaded NVIDIA dependencies in `dependencies/`. These are automatically downloaded on the first run of `run_all_tests.py` and pinned to specific revisions for repeatability:
 
@@ -59,30 +59,12 @@ Current built-in benchmark settings in `run_all_tests.py`:
 DATA_SIZE = 2**27
 ITER_COUNT = 200
 BATCH_SIZE = 20
-REPEATS = 3
+REPEATS = 5
 ```
 
 Notes about first-time setup:
 - Raw benchmark outputs are first written into `tests/<suite>/test_results/`, then copied and merged into the top-level `test_results/` tree
 - `test_results/` is created locally when the benchmarks run; it does not exist in the public repository until you generate results
-
-## Making the figures
-
-The final figures are generated from the consolidated root-level data under `test_results/`.
-
-Run:
-
-```bash
-bash make_figures.sh
-```
-
-Figure outputs:
-
-- `figures/*.pdf`
-- `figures/*.png`
-- `figures/*.csv`
-
-These files are generated locally and are gitignored in the public repository. In a fresh clone, you must run the benchmarks first so that `test_results/` exists before generating `fig1` through `fig4`.
 
 ## Cleaning generated outputs
 
