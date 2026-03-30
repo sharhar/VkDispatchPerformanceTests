@@ -104,9 +104,25 @@ void run_test(void* plan, cufftComplex* d_data, cufftComplex* d_kernel, long lon
         return;
     }
 
+    cufftComplex* kernel_ptr = d_kernel;
+
+    if constexpr (validate) {
+        cufftComplex* transposed_kernel = nullptr;
+        checkCuda(cudaMalloc(&transposed_kernel, total_elems * sizeof(cufftComplex)), "cudaMalloc d_data");
+        checkCuda(cudaMemset(transposed_kernel, 0, total_elems * sizeof(cufftComplex)), "cudaMemset d_data");
+
+        static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_strided.transpose_kernel(transposed_kernel, d_kernel, total_elems, stream);
+
+        kernel_ptr = transposed_kernel;
+    }
+
     static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_nonstrided.execute_padded_fft(d_data, total_elems, stream);
-    static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_strided.execute_padded_conv(d_data, d_kernel, total_elems, stream);
+    static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_strided.execute_padded_conv(d_data, kernel_ptr, total_elems, stream);
     static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_nonstrided.execute_ifft(d_data, total_elems, stream);
+
+    if constexpr (validate) {
+        checkCuda(cudaFree(kernel_ptr), "cudaFree transposed_kernel");
+    }
 }
 
 template<int FFTSize, int FFTsInBlock, int exec_mode>
