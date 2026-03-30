@@ -72,7 +72,9 @@ void run_test(void* plan, cufftComplex* d_data, cufftComplex* d_kernel, long lon
         checkCuda(cudaMalloc(&transposed_kernel, total_elems * sizeof(cufftComplex)), "cudaMalloc d_data");
         checkCuda(cudaMemset(transposed_kernel, 0, total_elems * sizeof(cufftComplex)), "cudaMemset d_data");
 
-        static_cast<FFTConv2DConfig<FFTSize, FFTsInBlock>*>(plan)->fft_strided.transpose_kernel(transposed_kernel, d_kernel, total_elems, stream);
+        StridedFFTConfig<FFTSize, FFTsInBlock, true, 1> fft_strided;
+        fft_strided.init(stream);
+        fft_strided.transpose_kernel(transposed_kernel, d_kernel, total_elems, stream);
 
         kernel_ptr = transposed_kernel;
     }
