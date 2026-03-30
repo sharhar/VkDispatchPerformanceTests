@@ -9,10 +9,6 @@ __pycache__/
 .DS_Store
 */.DS_Store
 
-*.tex
-*.txt
-*.pdf
-
 codebase.txt
 
 *.exec
