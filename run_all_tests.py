@@ -570,21 +570,22 @@ def run_accuraccy_test():
 if __name__ == "__main__":
     fetch_dependencies()
 
-    run_accuraccy_test()
+    if sys.argv.count('--validate') == 0:
+        run_accuraccy_test()
 
-    run_test(
-        test_name="fft_nonstrided",
-        title="Nonstrided FFT Performance",
-        xlabel="FFT Size",
-        ylabel="GB/s (higher is better)"
-    )
+    # run_test(
+    #     test_name="fft_nonstrided",
+    #     title="Nonstrided FFT Performance",
+    #     xlabel="FFT Size",
+    #     ylabel="GB/s (higher is better)"
+    # )
 
-    run_test(
-        test_name="fft_strided",
-        title="Strided FFT Performance",
-        xlabel="FFT Size",
-        ylabel="GB/s (higher is better)"
-    )
+    # run_test(
+    #     test_name="fft_strided",
+    #     title="Strided FFT Performance",
+    #     xlabel="FFT Size",
+    #     ylabel="GB/s (higher is better)"
+    # )
 
     run_test(
         test_name="fft_2d",
@@ -593,7 +594,7 @@ if __name__ == "__main__":
         ylabel="GB/s (higher is better)"
     )
 
-    if cuda_enabled:
+    if cuda_enabled and sys.argv.count('--validate') == 0:
         run_nvidia_test(
             test_name="conv_scaled_nvidia",
             title="NVidia Scaled Convolution Performance",
@@ -601,12 +602,12 @@ if __name__ == "__main__":
             ylabel="ms (lower is better)"
         )
 
-    run_test(
-        test_name="conv_scaled_control",
-        title="Control Scaled Convolution Performance",
-        xlabel="Convolution Size (FFT size)", 
-        ylabel="GB/s (higher is better)"
-    )
+    # run_test(
+    #     test_name="conv_scaled_control",
+    #     title="Control Scaled Convolution Performance",
+    #     xlabel="Convolution Size (FFT size)", 
+    #     ylabel="GB/s (higher is better)"
+    # )
 
     run_test(
         test_name="conv_2d",

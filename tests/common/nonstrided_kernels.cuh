@@ -206,7 +206,7 @@ public:
         long long fft_count = total_elems / (FFTSize * FFTsInBlock);
         
         nonstrided_fft_kernel<IFFT><<<fft_count, block_dim, shared_mem_size, stream>>>(
-            d_data, workspace
+            d_data, iworkspace
         );
 
         CUDA_CHECK_AND_EXIT(cudaPeekAtLastError());

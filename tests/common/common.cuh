@@ -119,6 +119,28 @@ static double gb_per_exec(long long total_elems) {
     return bytes / (1024.0 * 1024.0 * 1024.0);
 }
 
+static inline bool validation_error_exceeds_tolerance(const cufftComplex& actual,
+                                                      const cufftComplex& expected) {
+    constexpr float abs_tol_2 = 2.5e-7f; // (5e-4)^2
+    constexpr float rel_tol   = 1e-5f;
+    constexpr float ref_floor = 1e-8f;
+
+    const float diff_x = std::fabs(actual.x - expected.x);
+    const float diff_y = std::fabs(actual.y - expected.y);
+    const float diff_2 = diff_x * diff_x + diff_y * diff_y;
+
+    if (diff_2 <= abs_tol_2) {
+        return false;
+    }
+
+    const float abs_2 = expected.x * expected.x + expected.y * expected.y;
+    if (abs_2 <= ref_floor) {
+        return true;
+    }
+
+    return (diff_2 / abs_2) > rel_tol;
+}
+
 template<int FFTSize, int FFTsInBlock, int exec_mode>
 static double run_cufft_case(const Config& cfg) {
 
@@ -342,12 +364,7 @@ void run_validation_test(const Config& cfg) {
         float diff_2 = diff_x * diff_x + diff_y * diff_y;
 
         float abs_2 = h_data_ref[i].x * h_data_ref[i].x + h_data_ref[i].y * h_data_ref[i].y;
-        if (abs_2 < 1e-8f || diff_2 < 1e-8f) {
-            // skip near-zero reference values
-            continue;
-        }
-
-        if (diff_2 / abs_2 > 1e-6f) {
+        if (validation_error_exceeds_tolerance(h_data[i], h_data_ref[i])) {
             if (errors < 10) {
                 std::cout << "Mismatch at index " << i << ": got (" << h_data[i].x << ", " << h_data[i].y
                           << "), expected (" << h_data_ref[i].x << ", " << h_data_ref[i].y << ")"

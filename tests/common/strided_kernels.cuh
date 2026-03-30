@@ -171,31 +171,41 @@ __global__ void strided_fft_kernel(cufftComplex* data, unsigned int inner_fft_co
 
 template<class FFT, bool smem_transpose, bool read_kernel_transposed, bool multi_layer_kernel> 
 __device__ void apply_kernel(float2* kernel, float2* thread_data, float2* shared_mem, unsigned int inner_batch_count) {
-    //if constexpr (read_kernel_transposed) {
-    
-    const size_t kernel_stride       = blockDim.x * blockDim.y * gridDim.x * gridDim.y;
-    size_t       kernel_index        = threadIdx.x + blockDim.x * threadIdx.y;
-    kernel_index += (blockIdx.x + gridDim.x * blockIdx.y) * blockDim.x * blockDim.y;
+    float2 kernel_thread_data[FFT::storage_size];
 
-    // complex multiplication in the frequency domain
+    if constexpr (read_kernel_transposed) {
+        if constexpr (smem_transpose) {
+            __syncthreads();
+        }
+
+        load_strided<FFT, smem_transpose>(kernel, kernel_thread_data, shared_mem, inner_batch_count * FFT::ffts_per_block);
+
+        if constexpr (smem_transpose) {
+            __syncthreads();
+        }
+    } else {
+        const size_t kernel_stride = blockDim.x * blockDim.y * gridDim.x * gridDim.y;
+        size_t kernel_index = threadIdx.x + blockDim.x * threadIdx.y;
+        kernel_index += (blockIdx.x + gridDim.x * blockIdx.y) * blockDim.x * blockDim.y;
+
+        #pragma unroll
+        for (unsigned int i = 0; i < FFT::elements_per_thread; ++i) {
+            kernel_thread_data[i] = kernel[kernel_index];
+            kernel_index += kernel_stride;
+        }
+    }
+
+    // Complex multiplication in the frequency domain. The kernel must be loaded
+    // with the same layout transform as the data for the second 2D pass.
+    #pragma unroll
     for (unsigned int i = 0; i < FFT::elements_per_thread; ++i) {
-        float2 kernel_thread_data = kernel[kernel_index];
-
-        //if constexpr (multi_layer_kernel) {
-        //    kernel_thread_data = kernel[kernel_index];
-        //} else {
-        //    kernel_thread_data = kernel[kernel_index % (cufftdx::size_of<FFT>::value * cufftdx::size_of<FFT>::value)];
-        //}
-
-        kernel_index += kernel_stride;
-
         float2 a;
         a.x = thread_data[i].x;
         a.y = thread_data[i].y;
 
         float2 b;
-        b.x = kernel_thread_data.x;
-        b.y = kernel_thread_data.y;
+        b.x = kernel_thread_data[i].x;
+        b.y = kernel_thread_data[i].y;
         
         float2 c;
         c.x = a.x * b.x - a.y * b.y;
@@ -204,37 +214,6 @@ __device__ void apply_kernel(float2* kernel, float2* thread_data, float2* shared
         thread_data[i].x = c.x;
         thread_data[i].y = c.y;
     }
-
-    // } else {
-    //     // Local array for thread
-    //     float2 kernel_thread_data[FFT::storage_size];
-
-    //     if constexpr (smem_transpose)
-    //         __syncthreads();
-
-    //     load_strided<FFT, smem_transpose>(kernel, kernel_thread_data, shared_mem, inner_batch_count * FFT::ffts_per_block);
-
-    //     if constexpr (smem_transpose)
-    //         __syncthreads();
-
-    //     // complex multiplication in the frequency domain
-    //     for (unsigned int i = 0; i < FFT::elements_per_thread; ++i) {
-    //         float2 a;
-    //         a.x = thread_data[i].x;
-    //         a.y = thread_data[i].y;
-
-    //         float2 b;
-    //         b.x = kernel_thread_data[i].x;
-    //         b.y = kernel_thread_data[i].y;
-            
-    //         float2 c;
-    //         c.x = a.x * b.x - a.y * b.y;
-    //         c.y = a.x * b.y + a.y * b.x;
-
-    //         thread_data[i].x = c.x;
-    //         thread_data[i].y = c.y;
-    //     }
-    // }
 }
 
 template <class FFT, class IFFT, bool smem_transpose, bool read_kernel_transposed>
@@ -359,7 +338,7 @@ public:
         dim3 grid_dims(outer_fft_count, inner_fft_count);
         
         strided_fft_kernel<IFFT, smem_transpose><<<grid_dims, block_dim, shared_mem_size, stream>>>(
-            d_data, inner_fft_count, workspace
+            d_data, inner_fft_count, iworkspace
         );
 
         CUDA_CHECK_AND_EXIT(cudaPeekAtLastError());
